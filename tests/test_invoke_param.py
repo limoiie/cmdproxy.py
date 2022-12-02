@@ -148,12 +148,13 @@ DMeta = namedtuple('MetaDataUpload',
 
 
 @pytest.fixture(scope='function')
-def download_case(request, fake_local_file, fake_cloud_file_maker):
+def download_case(request, fake_local_file, fake_cloud_file_maker,
+                  grid_fs_maker):
     meta: DMeta = request.param
 
+    fs = grid_fs_maker('test_download_db')
     param = ipath(fake_local_file)
-    fs, content = fake_cloud_file_maker(
-        database_name='test_download_db', filename=param.cloud_url)
+    content = fake_cloud_file_maker(fs=fs, filename=param.cloud_url)
     ctx = contextlib.nullcontext()
 
     os.remove(fake_local_file)

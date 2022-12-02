@@ -2,12 +2,13 @@ import dataclasses
 import os
 import pathlib
 import tempfile
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, List, Tuple
 
 import gridfs
 import pymongo
 import pytest
 import redis
+from bson import ObjectId
 
 
 @pytest.fixture(scope='session')
@@ -99,23 +100,21 @@ def fake_local_path_maker(tmp_path):
 
 
 @pytest.fixture(scope='function')
-def fake_cloud_file_maker(tmp_path, faker, grid_fs_maker):
-    file_id_list = []
+def fake_cloud_file_maker(tmp_path, faker):
+    files: List[Tuple[gridfs.GridFS, ObjectId]] = []
 
-    def maker(database_name, filename):
-        _fs = grid_fs_maker(database_name)
+    def maker(fs: gridfs.GridFS, filename: str):
         _content = faker.text().encode()
-        _file_id = _fs.put(_content, filename=filename)
-        file_id_list.append((_fs, _file_id))
-        return _fs, _content
+        _file_id = fs.put(_content, filename=filename)
+        files.append((fs, _file_id))
+        return _content
 
     try:
         yield maker
 
     finally:
-        for fs, file_id in file_id_list:
-            fs: gridfs.GridFS
-            fs.delete(file_id)
+        for fs_, file_id in files:
+            fs_.delete(file_id)
 
 
 @dataclasses.dataclass
