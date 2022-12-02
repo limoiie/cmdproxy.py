@@ -5,12 +5,13 @@ from cmdproxy import ipath, opath
 from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle
 from cmdproxy.invoke_params import InLocalFileParam, OutLocalFileParam, \
-    ParamBase
+    ParamBase, StrParam
 
 
 class TestProxyClientEnd:
-    def test_wrap_args(self, grid_fs_maker, fake_local_file_maker,
-                       fake_local_path_maker, faker):
+    def test_correctly_maintain_files(self, grid_fs_maker, faker,
+                                      fake_local_file_maker,
+                                      fake_local_path_maker):
         fs = grid_fs_maker('test_wrap_args_db')
 
         inputs: List[Tuple[pathlib.Path, InLocalFileParam]] = []
@@ -31,6 +32,8 @@ class TestProxyClientEnd:
             return _param
 
         _args = [
+            '--flag=on',
+            '--arg=value',
             make_input_local_file(),
             make_output_local_path(),
         ]
@@ -42,9 +45,13 @@ class TestProxyClientEnd:
 
         class MockTool(CommandTool):
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
-                # assert all args are params,
-                for arg in args:
+                for origin_arg, arg in zip(_args, args):
+                    # assert all args are params,
                     assert isinstance(arg, ParamBase)
+
+                    # assert all the non-param args have been as StrParam
+                    if not isinstance(origin_arg, ParamBase):
+                        assert isinstance(arg, StrParam)
 
                 # assert all inputs are uploaded
                 for _path, _param in inputs:
@@ -61,12 +68,11 @@ class TestProxyClientEnd:
         im = ProxyClientEndInvokeMiddle(fs)
         tool = im.wrap(tool=MockTool('/bin/bash'))
 
-        tool(
-            *_args,
-            stdout=_stdout,
-            stderr=_stderr,
-            env=_env,
-        )
+        ret = tool(*_args,
+                   stdout=_stdout,
+                   stderr=_stderr,
+                   env=_env)
+        assert ret == 0
 
         # assert all outputs are downloaded
         for output_path, (output_content, _) in outputs.items():
