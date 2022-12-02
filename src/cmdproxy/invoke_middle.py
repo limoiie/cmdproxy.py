@@ -80,6 +80,8 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
     def _wrap_arg(self, arg: T, key=None) -> T or InvokeMiddle.ArgGuard:
         # todo: register Guard bound by Param, iterate them here
+        if arg is None:
+            return arg
         if isinstance(arg, InFileParam):
             return self.InFileGuard(self.fs, key, arg)
         if isinstance(arg, OutFileParam):
@@ -169,6 +171,8 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         self.fs: GridFS = fs
 
     def _wrap_arg(self, arg: T, key=None) -> T or InvokeMiddle.ArgGuard:
+        if arg is None:
+            return arg
         if isinstance(arg, InFileParam):
             assert isinstance(arg, InCloudFileParam)
             return self.InFileGuard(self.fs, key, arg)
