@@ -4,14 +4,14 @@ import dataclasses
 import os
 import tempfile
 from abc import abstractmethod
-from typing import Callable, ContextManager, List, TypeVar
+from typing import Any, ContextManager, TypeVar
 
 from gridfs import GridFS
+from registry import Registry
 
 from cmdproxy.command_tool import CommandTool, ProxyCommandTool
-from cmdproxy.invoke_params import ConfigParam, FormatParam, InCloudFileParam, \
-    InFileParam, OutCloudFileParam, OutFileParam, ParamBase, RemoteConfigParam, \
-    StrParam
+from cmdproxy.invoke_params import ConfigParam, FormatParam, InFileParam, \
+    OutFileParam, ParamBase, RemoteConfigParam, StrParam
 
 T = TypeVar('T')
 
@@ -81,46 +81,44 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         self.fs: GridFS = fs
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
-        # todo: register Guard bound by Param, iterate them here
-        if isinstance(arg, InFileParam):
-            return self.InFileGuard(self.fs)
-        if isinstance(arg, OutFileParam):
-            return self.OutFileGuard(self.fs)
-        if isinstance(arg, FormatParam):
-            return self.FormatGuard(self.wrap_args_rec)
-        return self.AnyGuard()
+        guard_cls: Any = self.ArgGuard.query(
+            fn=lambda m: isinstance(arg, m['param'])) or self.AnyGuard
 
-    class ArgGuard(InvokeMiddle.ArgGuard):
+        return guard_cls(self)
+
+    @dataclasses.dataclass
+    class ArgGuard(InvokeMiddle.ArgGuard, Registry):
+        ctx: 'ProxyClientEndInvokeMiddle'
+
         def guard(self, arg, key) -> ContextManager[ParamBase or None]:
             pass
 
+    @ArgGuard.register(param=StrParam)
     class AnyGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg, key):
             yield StrParam(arg)
 
+    @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass
     class InFileGuard(ArgGuard):
-        fs: GridFS
-
         @contextlib.contextmanager
         def guard(self, arg: InFileParam, key):
             if arg.is_local():
                 # upload local input file to the cloud
-                file_id = arg.upload_(self.fs)
+                file_id = arg.upload_(self.ctx.fs)
                 try:
                     yield arg.as_cloud()
 
                 finally:
-                    self.fs.delete(file_id)
+                    self.ctx.fs.delete(file_id)
 
             else:
                 yield arg
 
+    @ArgGuard.register(param=OutFileParam)
     @dataclasses.dataclass
     class OutFileGuard(ArgGuard):
-        fs: GridFS
-
         @contextlib.contextmanager
         def guard(self, arg: OutFileParam, key):
             if arg.is_local():
@@ -130,22 +128,21 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                 finally:
                     with contextlib.suppress(FileNotFoundError):
                         # download local output file, and remove from cloud
-                        file_id = arg.download_(self.fs)
+                        file_id = arg.download_(self.ctx.fs)
 
-                    self.fs.delete(file_id)
+                    self.ctx.fs.delete(file_id)
 
             else:
                 yield arg
 
+    @ArgGuard.register(param=FormatParam)
     @dataclasses.dataclass
     class FormatGuard(InvokeMiddle.ArgGuard):
-        wrap_args_rec: Callable[[contextlib.ExitStack, List], List]
-
         @contextlib.contextmanager
         def guard(self, arg: FormatParam, key):
             with contextlib.ExitStack() as stack:
                 # wrap the args recursively
-                arg.args = self.wrap_args_rec(stack, arg.args)
+                arg.args = self.ctx.wrap_args_rec(stack, arg.args)
                 yield arg
 
 
@@ -154,44 +151,40 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         self.fs: GridFS = fs
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
-        if isinstance(arg, InFileParam):
-            assert isinstance(arg, InCloudFileParam)
-            return self.InFileGuard(self.fs)
-        if isinstance(arg, OutFileParam):
-            assert isinstance(arg, OutCloudFileParam)
-            return self.OutFileGuard(self.fs)
-        if isinstance(arg, FormatParam):
-            assert isinstance(arg, FormatParam)
-            return self.FormatGuard(self.wrap_args_rec)
-        return self.AnyGuard()
+        guard_cls: Any = self.ArgGuard.query(
+            fn=lambda m: isinstance(arg, m['param']))
 
-    class ArgGuard(InvokeMiddle.ArgGuard):
+        return guard_cls(self)
+
+    @dataclasses.dataclass
+    class ArgGuard(InvokeMiddle.ArgGuard, Registry):
+        ctx: 'ProxyServerEndInvokeMiddle'
+
         def guard(self, arg, key) -> ContextManager[str or None]:
             pass
 
+    @ArgGuard.register(param=StrParam)
     @dataclasses.dataclass
     class AnyGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: StrParam, key):
             yield arg.value
 
+    @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass
     class InFileGuard(ArgGuard):
-        fs: GridFS
-
         @contextlib.contextmanager
         def guard(self, arg: InFileParam, key):
             with tempfile.TemporaryDirectory(prefix=arg.hostname) as workspace:
                 # download from cloud to local temp path
                 filepath = os.path.join(workspace, arg.filename)
-                arg.download(self.fs, filepath)
+                arg.download(self.ctx.fs, filepath)
 
                 yield filepath
 
+    @ArgGuard.register(param=OutFileParam)
     @dataclasses.dataclass
     class OutFileGuard(ArgGuard):
-        fs: GridFS
-
         @contextlib.contextmanager
         def guard(self, arg: OutFileParam, key):
             """Distribute an empty temp file and return its local path."""
@@ -202,17 +195,16 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
 
                 finally:
                     if os.path.exists(filepath):
-                        arg.upload(self.fs, filepath)
+                        arg.upload(self.ctx.fs, filepath)
                         os.remove(filepath)
 
+    @ArgGuard.register(param=FormatParam)
     @dataclasses.dataclass
     class FormatGuard(InvokeMiddle.ArgGuard):
-        wrap_args_rec: Callable[[contextlib.ExitStack, List], List]
-
         @contextlib.contextmanager
         def guard(self, arg: FormatParam, key: str):
             with contextlib.ExitStack() as stack:
-                args = self.wrap_args_rec(stack, arg.args)
+                args = self.ctx.wrap_args_rec(stack, arg.args)
                 yield format(arg.tmpl, *args)
 
 
