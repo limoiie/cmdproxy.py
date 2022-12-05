@@ -5,15 +5,38 @@ import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from socket import gethostname
-from typing import IO, Tuple
+from typing import IO, List, Tuple, TypeVar, Union
 
 import flexio
+from autodict import AutoDict, Dictable
+from autodict.predefined import dataclass_from_dict, dataclass_to_dict
 from bson import ObjectId
 from gridfs import GridFS, GridOut
 
 
-class ParamBase:
-    pass
+class ParamBase(Dictable):
+    def _to_dict(self) -> dict:
+        cls = type(self)
+        cls_name = AutoDict.meta_of(cls).name
+        return {
+            cls_name: self.subclass_to_dict()
+        }
+
+    @classmethod
+    def _from_dict(cls, obj: dict) -> 'P':
+        (cls_name, sub_dic), *_ = obj.items()
+        sub_cls = AutoDict.query(name=cls_name)
+        return sub_cls.subclass_from_dict(sub_dic)
+
+    def subclass_to_dict(self) -> dict:
+        return dataclass_to_dict(self)
+
+    @classmethod
+    def subclass_from_dict(cls, obj: dict) -> 'P':
+        return dataclass_from_dict(cls, obj)
+
+
+P = TypeVar('P', bound=ParamBase)
 
 
 @dataclasses.dataclass
@@ -29,13 +52,19 @@ class RemoteConfigParam(ConfigParam):
 LINK_REGEX = re.compile(r'<#:([io])>(.+?)</>')
 CLOUD_URL_REGEX = re.compile(r'@([^:]+):(.+)')
 CLOUD_URL = '@{hostname}:{abspath}'
+LOCAL_HOSTNAME = gethostname()
 
 
 @dataclasses.dataclass
 class FileParamBase(ParamBase):
-    def __init__(self, filepath: str or Path, hostname: str):
-        self._filepath = Path(filepath)
-        self._hostname = hostname
+    filepath: Path
+    hostname: str = LOCAL_HOSTNAME
+
+    def __post_init__(self):
+        self.filepath = Path(self.filepath)
+
+        if self.is_local():
+            assert self.hostname == LOCAL_HOSTNAME
 
     def is_input(self):
         return isinstance(self, InFileParam)
@@ -59,16 +88,8 @@ class FileParamBase(ParamBase):
                                 abspath=self.filepath.as_posix())
 
     @property
-    def filepath(self):
-        return self._filepath
-
-    @property
     def filename(self):
-        return str(self._filepath.name)
-
-    @property
-    def hostname(self):
-        return self._hostname
+        return str(self.filepath.name)
 
     def id_on_cloud(self, fs: GridFS) -> ObjectId or None:
         try:
@@ -126,9 +147,6 @@ class FileParamBase(ParamBase):
 
 
 class CloudFileParam(FileParamBase, ABC):
-    def __init__(self, filepath: str or Path, hostname: str):
-        super(CloudFileParam, self).__init__(filepath, hostname)
-
     def is_cloud_only(self):
         """
         A file param is cloud-only only if the filepath is relative.
@@ -154,9 +172,6 @@ class CloudFileParam(FileParamBase, ABC):
 
 
 class LocalFileParam(FileParamBase, ABC):
-    def __init__(self, filepath: str or Path):
-        super(LocalFileParam, self).__init__(filepath, gethostname())
-
     def download_(self, fs: GridFS) -> ObjectId:
         assert self.hostname == gethostname()
         return self.download(fs, self.filepath)[0]
@@ -177,32 +192,25 @@ class OutFileParam(FileParamBase, ABC):
 
 
 class InCloudFileParam(CloudFileParam, InFileParam):
-    def __init__(self, filepath: str or Path, hostname: str):
-        super().__init__(filepath, hostname)
-
     def as_cloud(self) -> 'InCloudFileParam':
         return self
 
 
 class InLocalFileParam(LocalFileParam, InFileParam):
-    def __init__(self, filepath: str or Path):
-        super().__init__(filepath)
+    pass
 
 
 class OutCloudFileParam(CloudFileParam, OutFileParam):
-    def __init__(self, filepath: str or Path, hostname: str):
-        super().__init__(filepath, hostname)
-
     def as_cloud(self) -> 'OutCloudFileParam':
         return self
 
 
 class OutLocalFileParam(LocalFileParam, OutFileParam):
-    def __init__(self, filepath: str or Path):
-        super().__init__(filepath)
+    pass
 
 
-def ipath(ref: str or pathlib.Path) -> InLocalFileParam or InCloudFileParam:
+def ipath(ref: Union[str, pathlib.Path]) \
+        -> Union[InLocalFileParam, InCloudFileParam]:
     """
     Create either an InLocalFileParam or an InCloudFileParam according to url.
 
@@ -212,7 +220,8 @@ def ipath(ref: str or pathlib.Path) -> InLocalFileParam or InCloudFileParam:
     return _file(ref, is_input=True)
 
 
-def opath(ref: str or pathlib.Path) -> OutLocalFileParam or OutCloudFileParam:
+def opath(ref: Union[str, pathlib.Path]) \
+        -> OutLocalFileParam or OutCloudFileParam:
     """
     Create either an OutLocalFileParam or an OutCloudFileParam according to url.
 
@@ -225,7 +234,7 @@ def opath(ref: str or pathlib.Path) -> OutLocalFileParam or OutCloudFileParam:
 @dataclasses.dataclass
 class FormatParam(ParamBase):
     tmpl: str
-    args: list
+    args: List[ParamBase]
 
 
 @dataclasses.dataclass
@@ -233,13 +242,13 @@ class StrParam(ParamBase):
     value: str
 
 
-def upload_as_in(fs: GridFS, path: str or Path) -> InCloudFileParam:
+def upload_as_in(fs: GridFS, path: Union[str, Path]) -> InCloudFileParam:
     param = ipath(path).as_cloud()
     param.upload_(fs)
     return param
 
 
-def alloc_as_out(fs: GridFS, path: str or Path) -> OutCloudFileParam:
+def alloc_as_out(fs: GridFS, path: Union[str, Path]) -> OutCloudFileParam:
     param = opath(path).as_cloud()
     param.alloc_(fs)
     return param
