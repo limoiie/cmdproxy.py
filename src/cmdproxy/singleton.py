@@ -1,4 +1,7 @@
 import threading
+from typing import Type, TypeVar
+
+T = TypeVar('T')
 
 
 class Singleton:
@@ -13,7 +16,7 @@ class Singleton:
         return cls._instance
 
     @classmethod
-    def instantiate(cls, *args, **kwargs):
+    def instantiate(cls: Type[T], *args, **kwargs) -> T:
         with cls._instantiate_mutex:
             self = cls.__new__(cls)
             # noinspection PyArgumentList
@@ -22,7 +25,7 @@ class Singleton:
         return self
 
     @classmethod
-    def instance(cls):
+    def instance(cls: Type[T]) -> T:
         if cls._instance is None:
             raise ValueError('Not initialized instance.')
 
