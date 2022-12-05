@@ -260,7 +260,9 @@ def mp_case(request, fake_local_path_maker, faker):
         obj = {
             AutoDict.meta_of(type(param)).name: {
                 'tmpl': param.tmpl,
-                'args': param.args,  # todo:
+                'args': [
+                    arg.to_dict(with_cls=meta.with_cls) for arg in param.args
+                ]
             }
         }
 
@@ -322,6 +324,11 @@ class TestParamSerde:
              conf=None,
              with_cls=None,
              raises=None),
+        Meta(name='format param',
+             kind='format',
+             conf=None,
+             with_cls=True,
+             raises=None)
     ]
 
     @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
