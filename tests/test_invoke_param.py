@@ -5,12 +5,15 @@ import socket
 from collections import namedtuple
 from os.path import basename
 from pathlib import Path
+from typing import cast
 
 import flexio
 import pytest
+from autodict import AutoDict
 
-from cmdproxy.invoke_params import InCloudFileParam, \
-    InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ipath, opath
+from cmdproxy.invoke_params import ConfigParam, FormatParam, InCloudFileParam, \
+    InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ParamBase, StrParam, \
+    ipath, opath
 from tests.conftest import case_name
 
 MMeta = namedtuple('MetaDataMake', 'absolute,is_cloud,is_in,name')
@@ -224,3 +227,121 @@ class TestFileParamInteraction:
             download_content = io.read()
 
         assert case.content == download_content
+
+
+@pytest.fixture(scope='function')
+def mp_case(request, fake_local_path_maker, faker):
+    meta: TestParamSerde.Meta = request.param
+
+    if meta.kind == 'file':
+        param = ipath(fake_local_path_maker()) if meta.conf['is_in'] else \
+            opath(fake_local_path_maker())
+        param = param.as_cloud() if meta.conf['is_cloud'] else param
+        obj = {
+            AutoDict.meta_of(type(param)).name: {
+                'filepath': str(param.filepath),
+                'hostname': param.hostname,
+            }
+        }
+
+    elif meta.kind == 'str':
+        param = StrParam(faker.text())
+        obj = {
+            AutoDict.meta_of(type(param)).name: {
+                'value': param.value,
+            }
+        }
+
+    elif meta.kind == 'format':
+        param = FormatParam(faker.text(), [
+            ipath(fake_local_path_maker()),
+            opath(fake_local_path_maker()),
+        ])
+        obj = {
+            AutoDict.meta_of(type(param)).name: {
+                'tmpl': param.tmpl,
+                'args': param.args,  # todo:
+            }
+        }
+
+    elif meta.kind == 'config':
+        param = ConfigParam(faker.text())
+        obj = {
+            AutoDict.meta_of(type(param)).name: {
+                'param_key': param.param_key
+            }
+        }
+
+    else:
+        raise ValueError(f'Unknown param type: {meta.kind}')
+
+    if meta.with_cls:
+        obj[AutoDict.CLS_ANNO_KEY] = AutoDict.meta_of(type(param)).name
+
+    return TestParamSerde.Case(
+        name=meta.name,
+        param=param,
+        with_cls=meta.with_cls,
+        obj=obj,
+        raises=meta.raises,
+    )
+
+
+class TestParamSerde:
+    Meta = namedtuple('MetaParam', 'kind,conf,with_cls,raises,name')
+    Case = namedtuple('CaseParam', 'param,with_cls,obj,raises,name')
+
+    cases = [
+        Meta(name='local input file param',
+             kind='file',
+             conf=dict(is_in=True, is_cloud=False),
+             with_cls=True,
+             raises=None),
+        Meta(name='local output file param',
+             kind='file',
+             conf=dict(is_in=False, is_cloud=False),
+             with_cls=True,
+             raises=None),
+        Meta(name='cloud input file param',
+             kind='file',
+             conf=dict(is_in=True, is_cloud=True),
+             with_cls=True,
+             raises=None),
+        Meta(name='cloud output file param',
+             kind='file',
+             conf=dict(is_in=False, is_cloud=True),
+             with_cls=True,
+             raises=None),
+        Meta(name='str param',
+             kind='str',
+             conf=None,
+             with_cls=None,
+             raises=None),
+        Meta(name='config param',
+             kind='config',
+             conf=None,
+             with_cls=None,
+             raises=None),
+    ]
+
+    @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
+    def test_to_dict(self, mp_case: Case, fake_local_path_maker):
+        case = mp_case
+        param = cast(ParamBase, case.param)
+
+        if case.raises:
+            with pytest.raises(case.raises.exc, **case.raises.kwargs):
+                param.to_dict(with_cls=case.with_cls)
+
+        else:
+            assert param.to_dict(with_cls=case.with_cls) == case.obj
+
+    @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
+    def test_from_dict(self, mp_case: Case, fake_local_path_maker):
+        case = mp_case
+        if case.raises:
+            with pytest.raises(case.raises.exc, **case.raises.kwargs):
+                ParamBase.from_dict(case.obj)
+
+        else:
+            assert ParamBase.from_dict(case.obj) == case.param
