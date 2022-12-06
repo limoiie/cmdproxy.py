@@ -47,14 +47,16 @@ class InvokeMiddle:
         def wrap(arg, k=None):
             if arg is None:
                 return arg
-            if isinstance(arg, dict):
-                return {k: wrap(v, k) for k, v in arg.items()}
-            if isinstance(arg, list):
-                return [wrap(v) for v in arg]
-            if isinstance(arg, tuple):
-                return (wrap(v) for v in arg)
-            if isinstance(arg, set):
-                return {wrap(v) for v in arg}
+
+            cls = type(arg)
+            if issubclass(cls, dict):
+                return cls({k: wrap(v, k) for k, v in arg.items()})
+            if issubclass(cls, list):
+                return cls(wrap(v) for v in arg)
+            if issubclass(cls, tuple):
+                return cls(wrap(v) for v in arg)
+            if issubclass(cls, set):
+                return cls(wrap(v) for v in arg)
 
             guarder = self._guarder(arg, k)
             return stack.enter_context(guarder.guard(arg, k))
@@ -80,7 +82,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
     class ArgGuard(InvokeMiddle.ArgGuard, Registry):
         ctx: 'ProxyClientEndInvokeMiddle'
 
-        def guard(self, arg, key) -> ContextManager[ParamBase or None]:
+        def guard(self, arg, key) -> ContextManager[Optional[ParamBase]]:
             pass
 
     @ArgGuard.register(param=StrParam)
@@ -126,7 +128,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
     @ArgGuard.register(param=FormatParam)
     @dataclasses.dataclass
-    class FormatGuard(InvokeMiddle.ArgGuard):
+    class FormatGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: FormatParam, key):
             with contextlib.ExitStack() as stack:
@@ -149,7 +151,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class ArgGuard(InvokeMiddle.ArgGuard, Registry):
         ctx: 'ProxyServerEndInvokeMiddle'
 
-        def guard(self, arg, key) -> ContextManager[str or None]:
+        def guard(self, arg, key) -> ContextManager[Optional[str]]:
             pass
 
     @ArgGuard.register(param=StrParam)
@@ -189,12 +191,12 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
 
     @ArgGuard.register(param=FormatParam)
     @dataclasses.dataclass
-    class FormatGuard(InvokeMiddle.ArgGuard):
+    class FormatGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: FormatParam, key: str):
             with contextlib.ExitStack() as stack:
                 args = self.ctx.wrap_args_rec(stack, arg.args)
-                yield format(arg.tmpl, *args)
+                yield arg.tmpl.format(*args)
 
 
 class ConfigInvokeMiddle(InvokeMiddle):

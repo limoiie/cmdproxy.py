@@ -31,9 +31,9 @@ class Server(Singleton):
         return self._proxy(serialized_request)
 
 
-def startup_app(redis_url: str, mongo_url: str, mongodb_name: str,
+def startup_app(redis_uri: str, mongo_uri: str, mongodb_name: str,
                 command_palette_path: str):
-    conf = init_server_end_conf(redis_url, mongo_url, mongodb_name,
+    conf = init_server_end_conf(redis_uri, mongo_uri, mongodb_name,
                                 pathlib.Path(command_palette_path))
 
     return Server.instantiate(conf)

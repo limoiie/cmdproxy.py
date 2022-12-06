@@ -4,6 +4,8 @@ import pathlib
 import subprocess
 from typing import Optional
 
+from flexio import FlexBinaryIO
+
 LOG_PREFIX = 'bin2sth.bin2data.analysis'
 
 
@@ -43,11 +45,13 @@ class CommandTool:
         :param cwd: Target working directory.
         :return: process exit code
         """
-        res = subprocess.run(args, executable=self._command, env=env, cwd=cwd,
-                             stdout=stdout, stderr=stderr)
-        if res.returncode != 0:
-            # todo: should stdout be a message string?
-            self._err = CommandToolErr(res.returncode, stdout, stderr)
+        with FlexBinaryIO(stdout, mode='wb+') as out, \
+                FlexBinaryIO(stderr, mode='wb+') as err:
+            res = subprocess.run([self._command, *args], env=env, cwd=cwd,
+                                 stdout=out, stderr=err)
+            if res.returncode != 0:
+                # todo: should stdout be a message string?
+                self._err = CommandToolErr(res.returncode, stdout, stderr)
         return res.returncode
 
     def err(self):
