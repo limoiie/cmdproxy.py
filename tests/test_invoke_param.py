@@ -9,7 +9,7 @@ from typing import cast
 
 import flexio
 import pytest
-from autodict import AutoDict
+from autodict import AutoDict, Options
 
 from cmdproxy.invoke_params import ConfigParam, FormatParam, InCloudFileParam, \
     InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ParamBase, StrParam, \
@@ -261,7 +261,7 @@ def mp_case(request, fake_local_path_maker, faker):
             AutoDict.meta_of(type(param)).name: {
                 'tmpl': param.tmpl,
                 'args': [
-                    arg.to_dict(with_cls=meta.with_cls) for arg in param.args
+                    arg.to_dict(meta.opts) for arg in param.args
                 ]
             }
         }
@@ -277,58 +277,63 @@ def mp_case(request, fake_local_path_maker, faker):
     else:
         raise ValueError(f'Unknown param type: {meta.kind}')
 
-    if meta.with_cls:
+    if meta.opts.with_cls:
         obj[AutoDict.CLS_ANNO_KEY] = AutoDict.meta_of(type(param)).name
 
     return TestParamSerde.Case(
         name=meta.name,
         param=param,
-        with_cls=meta.with_cls,
+        opts=meta.opts,
         obj=obj,
         raises=meta.raises,
     )
 
 
 class TestParamSerde:
-    Meta = namedtuple('MetaParam', 'kind,conf,with_cls,raises,name')
-    Case = namedtuple('CaseParam', 'param,with_cls,obj,raises,name')
+    Meta = namedtuple('MetaParam', 'kind,conf,opts,raises,name')
+    Case = namedtuple('CaseParam', 'param,opts,obj,raises,name')
 
     cases = [
         Meta(name='local input file param',
              kind='file',
              conf=dict(is_in=True, is_cloud=False),
-             with_cls=True,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='local output file param',
              kind='file',
              conf=dict(is_in=False, is_cloud=False),
-             with_cls=True,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='cloud input file param',
              kind='file',
              conf=dict(is_in=True, is_cloud=True),
-             with_cls=True,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='cloud output file param',
              kind='file',
              conf=dict(is_in=False, is_cloud=True),
-             with_cls=True,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='str param',
              kind='str',
              conf=None,
-             with_cls=None,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='config param',
              kind='config',
              conf=None,
-             with_cls=None,
+             opts=Options(with_cls=True),
              raises=None),
         Meta(name='format param',
              kind='format',
              conf=None,
-             with_cls=True,
-             raises=None)
+             opts=Options(with_cls=True),
+             raises=None),
+        Meta(name='format param without class',
+             kind='format',
+             conf=None,
+             opts=Options(with_cls=False),
+             raises=None),
     ]
 
     @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
@@ -338,17 +343,17 @@ class TestParamSerde:
 
         if case.raises:
             with pytest.raises(case.raises.exc, **case.raises.kwargs):
-                param.to_dict(with_cls=case.with_cls)
+                param.to_dict(options=case.opts)
+            return
 
-        else:
-            assert param.to_dict(with_cls=case.with_cls) == case.obj
+        assert param.to_dict(options=case.opts) == case.obj
 
     @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
     def test_from_dict(self, mp_case: Case, fake_local_path_maker):
         case = mp_case
         if case.raises:
             with pytest.raises(case.raises.exc, **case.raises.kwargs):
-                ParamBase.from_dict(case.obj)
+                ParamBase.from_dict(case.obj, options=case.opts)
+            return
 
-        else:
-            assert ParamBase.from_dict(case.obj) == case.param
+        assert ParamBase.from_dict(case.obj, options=case.opts) == case.param

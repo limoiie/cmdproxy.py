@@ -28,16 +28,16 @@ classifiers = [
     'Programming Language :: Python :: 3.11',
 ]
 dependencies = [
-    "autoserde @ git+https://github.com/limoiie/autoserde.git@v0.0.2",
+    "autoserde @ git+https://github.com/limoiie/autoserde.git@v0.0.3",
     "celery ~= 5.2.3",
     "fire ~= 0.4.0",
-    "flexio @ git+https://github.com/limoiie/flexio.git@v0.0.1",
+    "flexio @ git+https://github.com/limoiie/flexio.git@v0.0.2",
     "pymongo ~= 4.0.2",
     "pyyaml ~= 6.0",
     "redis ~= 3.5.3",
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "pytest-mock", "faker"]
+tests = ["pytest", "pytest-celery", "pytest-mock", "faker"]
 
 [tool.setuptools_scm]

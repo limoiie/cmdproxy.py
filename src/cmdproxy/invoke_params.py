@@ -7,6 +7,7 @@ from pathlib import Path
 from socket import gethostname
 from typing import IO, List, Tuple, TypeVar, Union
 
+import autodict
 import flexio
 from autodict import AutoDict, Dictable
 from autodict.predefined import dataclass_from_dict, dataclass_to_dict
@@ -15,25 +16,28 @@ from gridfs import GridFS, GridOut
 
 
 class ParamBase(Dictable):
-    def _to_dict(self) -> dict:
+    def _to_dict(self, options: autodict.Options) -> dict:
         cls = type(self)
-        cls_name = AutoDict.meta_of(cls).name
-        return {
-            cls_name: self.subclass_to_dict()
-        }
+        sub_name = AutoDict.meta_of(cls).name
+        return {sub_name: self._subclass_to_dict(options=options)}
 
     @classmethod
-    def _from_dict(cls, obj: dict) -> 'P':
-        (cls_name, sub_dic), *_ = obj.items()
-        sub_cls = AutoDict.query(name=cls_name)
-        return sub_cls.subclass_from_dict(sub_dic)
+    def _from_dict(cls, obj: dict, options: autodict.Options) -> 'P':
+        if cls is ParamBase:
+            sub_name, sub_obj = obj.popitem()
+            sub_cls = AutoDict.query(name=sub_name)
+            return AutoDict.from_dict(sub_obj, cls=sub_cls, options=options)
 
-    def subclass_to_dict(self) -> dict:
-        return dataclass_to_dict(self)
+        sub_name = AutoDict.meta_of(cls).name
+        sub_obj = obj[sub_name] if sub_name in obj else obj
+        return cls._subclass_from_dict(sub_obj, options)
+
+    def _subclass_to_dict(self, options: autodict.Options):
+        return dataclass_to_dict(self, options)
 
     @classmethod
-    def subclass_from_dict(cls, obj: dict) -> 'P':
-        return dataclass_from_dict(cls, obj)
+    def _subclass_from_dict(cls, obj: dict, options: autodict.Options):
+        return dataclass_from_dict(cls, obj, options)
 
 
 P = TypeVar('P', bound=ParamBase)
