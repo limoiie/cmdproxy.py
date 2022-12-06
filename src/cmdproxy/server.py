@@ -4,7 +4,7 @@ from autodict import Options
 
 from cmdproxy.celery_app.config import CmdProxyServerConf, init_server_end_conf
 from cmdproxy.command_tool import CommandTool
-from cmdproxy.invoke_middle import DeserializeAndUnpack, \
+from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
     ProxyServerEndInvokeMiddle
 from cmdproxy.singleton import Singleton
 
@@ -12,7 +12,7 @@ from cmdproxy.singleton import Singleton
 class Server(Singleton):
     def __init__(self, conf: CmdProxyServerConf):
         # todo: resolve config or environment vars?
-        @DeserializeAndUnpack(fmt='json', options=Options(with_cls=False))
+        @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
         @ProxyServerEndInvokeMiddle(conf.celery.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):
             return_code = CommandTool(command)(

@@ -244,7 +244,7 @@ class PackAndSerializeMiddle:
 
 
 @dataclasses.dataclass
-class DeserializeAndUnpack:
+class DeserializeAndUnpackMiddle:
     fmt: str
     options: Optional[autodict.Options]
 
