@@ -1,46 +1,40 @@
-import celery
-from autoserde import AutoSerde
+from typing import cast
 
-from cmdproxy.celery_app.config import init_client_end_conf, CmdProxyClientConf
-from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle
-from cmdproxy.run_request import RunRequest
+import celery
+from autodict import Options
+
+from cmdproxy.celery_app.config import CmdProxyClientConf, init_client_end_conf
+from cmdproxy.invoke_middle import PackAndSerializeMiddle, \
+    ProxyClientEndInvokeMiddle
 from cmdproxy.singleton import Singleton
 
 
 class Client(Singleton):
-    def __init__(self, conf: CmdProxyClientConf):
+    def __init__(self, conf: CmdProxyClientConf, run: celery.Task):
         # todo: resolve config or environment vars?
         @ProxyClientEndInvokeMiddle(conf.celery.grid_fs())
-        def proxy(command, args, stdout, stderr, env, cwd):
+        @PackAndSerializeMiddle(fmt='json', options=Options(with_cls=False))
+        def proxy(serialized: str):
             # all the args has been converted into strings
-            from cmdproxy.celery_app.tasks import run
-            assert isinstance(run, celery.Task)
-
-            request = RunRequest(
-                command=command,
-                stdout=stdout,
-                stderr=stderr,
-                env=env,
-                cwd=cwd,
-                args=args,
-            )
-            return run.delay(AutoSerde.serialize(request))
+            return_code = run.delay(serialized).get()
+            # todo: collect command err
+            return return_code
 
         self._proxy = proxy
         self._conf = conf
 
-    def run(self, command, *args, stdout=None, stderr=None, env=None, cwd=None):
-        return self._proxy(
-            command=command,
-            args=args,
-            stdout=stdout,
-            stderr=stderr,
-            env=env,
-            cwd=cwd
-        )
+    def run(self, command, args, stdout=None, stderr=None, env=None, cwd=None):
+        return self._proxy(command=command,
+                           args=args,
+                           stdout=stdout,
+                           stderr=stderr,
+                           env=env,
+                           cwd=cwd)
 
 
 def startup_app(redis_url, mongo_url, mongodb_name='cmdproxy'):
+    from cmdproxy.celery_app.tasks import run
+
     conf = init_client_end_conf(redis_url, mongo_url, mongodb_name)
 
-    Client(conf)
+    return Client.instantiate(cast(celery.Task, run), conf)

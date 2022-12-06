@@ -27,9 +27,9 @@ class CommandToolErr:
 
 
 class CommandTool:
-    def __init__(self, command_path):
+    def __init__(self, command):
+        self._command: str = str(command)
         self._err: Optional[CommandToolErr] = None
-        self._cmd_path = pathlib.Path(command_path)
 
     def __call__(self, *args, stdout, stderr=None, env=None, cwd=None) -> int:
         """
@@ -43,7 +43,7 @@ class CommandTool:
         :param cwd: Target working directory.
         :return: process exit code
         """
-        res = subprocess.run(args, executable=self._cmd_path, env=env, cwd=cwd,
+        res = subprocess.run(args, executable=self._command, env=env, cwd=cwd,
                              stdout=stdout, stderr=stderr)
         if res.returncode != 0:
             # todo: should stdout be a message string?
@@ -54,10 +54,10 @@ class CommandTool:
         return self._err
 
     def cmd(self):
-        return self._cmd_path.name
+        return os.path.basename(self._command)
 
     def cmd_path(self):
-        return self._cmd_path
+        return pathlib.Path(self._command)
 
 
 class ProxyCommandTool(CommandTool):

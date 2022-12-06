@@ -4,14 +4,16 @@ import dataclasses
 import os
 import tempfile
 from abc import abstractmethod
-from typing import Any, ContextManager, TypeVar
+from typing import Any, Callable, ContextManager, Optional, TypeVar
 
+import autodict
+from autoserde import AutoSerde
 from gridfs import GridFS
 from registry import Registry
 
-from cmdproxy.command_tool import CommandTool, ProxyCommandTool
 from cmdproxy.invoke_params import ConfigParam, FormatParam, InFileParam, \
     OutFileParam, ParamBase, RemoteConfigParam, StrParam
+from cmdproxy.run_request import RunRequest
 
 T = TypeVar('T')
 
@@ -22,24 +24,24 @@ class InvokeMiddle:
         def guard(self, arg, key: str) -> ContextManager:
             pass
 
-    class WrappedCommandTool(ProxyCommandTool):
+    def __call__(self, tool: Callable):
+        return self.wrap(tool)
+
+    def wrap(self, tool: Callable) -> Callable:
         """
-        Call the proxy tool after preprocessing all its arguments.
+        Wrap a command for preprocessing its args before calling it.
+
+        :param tool: the command going to be wrapped
+        :return: the wrapped command
         """
 
-        def __init__(self, proxy_tool: CommandTool, fn_wrap_args):
-            super().__init__(proxy_tool)
-            self.__fn_wrap_args = fn_wrap_args
-
-        def __call__(self, *args, **kwargs):
-            with self.__guard(args, kwargs) as (args, kwargs):
-                return self.proxy_tool(*args, **kwargs)
-
-        @contextlib.contextmanager
-        def __guard(self, args, kwargs):
+        def wrapped(*args, **kwargs):
             with contextlib.ExitStack() as stack:
-                yield self.__fn_wrap_args(stack, args), \
-                    self.__fn_wrap_args(stack, kwargs)
+                args, kwargs = self.wrap_args_rec(stack, args), \
+                    self.wrap_args_rec(stack, kwargs)
+                return tool(*args, **kwargs)
+
+        return wrapped
 
     def wrap_args_rec(self, stack: contextlib.ExitStack, args):
         def wrap(arg, k=None):
@@ -58,18 +60,6 @@ class InvokeMiddle:
             return stack.enter_context(guarder.guard(arg, k))
 
         return wrap(args)
-
-    def __call__(self, tool: CommandTool):
-        return self.wrap(tool)
-
-    def wrap(self, tool: CommandTool) -> CommandTool:
-        """
-        Wrap a command for preprocessing its args before calling it.
-
-        :param tool: the command going to be wrapped
-        :return: the wrapped command
-        """
-        return InvokeMiddle.WrappedCommandTool(tool, self.wrap_args_rec)
 
     @abstractmethod
     def _guarder(self, arg: T, key=None) -> ArgGuard:
@@ -227,3 +217,52 @@ class ConfigProxyInvokeMiddle(ConfigInvokeMiddle):
         if isinstance(arg, RemoteConfigParam):
             return ConfigParam(arg.param_key)
         return super()._guarder(arg, key)
+
+
+@dataclasses.dataclass
+class PackAndSerializeMiddle:
+    fmt: str
+    options: Optional[autodict.Options] = None
+
+    def __call__(self, tool: Callable[[str], T]) -> Callable[[Any, ...], T]:
+        return self.wrap(tool)
+
+    def wrap(self, tool: Callable[[str], T]) -> Callable[[Any, ...], T]:
+        def wrapped(command, args, stdout, stderr, env, cwd):
+            run_request = RunRequest(
+                command=command,
+                args=args,
+                stdout=stdout,
+                stderr=stderr,
+                env=env,
+                cwd=cwd,
+            )
+            return tool(AutoSerde.serialize(
+                run_request, fmt=self.fmt, options=self.options))
+
+        return wrapped
+
+
+@dataclasses.dataclass
+class DeserializeAndUnpack:
+    fmt: str
+    options: Optional[autodict.Options]
+
+    def __call__(self, tool: Callable) -> Callable[[str], T]:
+        return self.wrap(tool)
+
+    def wrap(self, tool: Callable) -> Callable[[str], T]:
+        def wrapped(serialized: str):
+            run_request = AutoSerde.deserialize(
+                body=serialized, cls=RunRequest, fmt=self.fmt,
+                options=self.options)
+            return tool(
+                command=run_request.command,
+                args=run_request.args,
+                stdout=run_request.stdout,
+                stderr=run_request.stderr,
+                env=run_request.env,
+                cwd=run_request.cwd
+            )
+
+        return wrapped

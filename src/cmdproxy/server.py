@@ -1,42 +1,34 @@
 import pathlib
 
-from autoserde import AutoSerde
+from autodict import Options
 
-from cmdproxy.celery_app.config import init_server_end_conf, CmdProxyServerConf
+from cmdproxy.celery_app.config import CmdProxyServerConf, init_server_end_conf
 from cmdproxy.command_tool import CommandTool
-from cmdproxy.invoke_middle import ProxyServerEndInvokeMiddle
-from cmdproxy.run_request import RunRequest
+from cmdproxy.invoke_middle import DeserializeAndUnpack, \
+    ProxyServerEndInvokeMiddle
 from cmdproxy.singleton import Singleton
 
 
 class Server(Singleton):
     def __init__(self, conf: CmdProxyServerConf):
         # todo: resolve config or environment vars?
+        @DeserializeAndUnpack(fmt='json', options=Options(with_cls=False))
         @ProxyServerEndInvokeMiddle(conf.celery.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):
-            return CommandTool(command)(
+            return_code = CommandTool(command)(
                 *args,
                 stdout=stdout,
                 stderr=stderr,
                 env=env,
-                cwd=cwd
-            )
+                cwd=cwd)
+            # todo: collect command err
+            return return_code
 
         self._proxy = proxy
         self._conf = conf
 
     def run(self, serialized_request: str):
-        request = AutoSerde.deserialize(serialized_request, RunRequest)
-        # all the args has been converted into strings
-
-        return self._proxy(
-            command=self._conf.command_palette[request.command],
-            args=request.args,
-            stdout=request.stdout,
-            stderr=request.stderr,
-            env=request.env,
-            cwd=request.cwd
-        )
+        return self._proxy(serialized_request)
 
 
 def startup_app(redis_url: str, mongo_url: str, mongodb_name: str,
@@ -44,4 +36,4 @@ def startup_app(redis_url: str, mongo_url: str, mongodb_name: str,
     conf = init_server_end_conf(redis_url, mongo_url, mongodb_name,
                                 pathlib.Path(command_palette_path))
 
-    Server(conf)
+    return Server.instantiate(conf)
