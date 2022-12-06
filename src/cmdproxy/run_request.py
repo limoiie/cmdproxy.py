@@ -1,17 +1,16 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
-from autoserde import serdeable
+from cmdproxy.invoke_params import ParamBase
 
 
-@serdeable
 @dataclass
 class RunRequest:
-    command: str
-    args: tuple[str, ...]
+    command: ParamBase
+    args: Tuple[ParamBase, ...]
     cwd: Optional[str] = None
-    env: Optional[dict] = None
-    to_downloads: Optional[list[(str, str)]] = None
-    to_uploads: Optional[list[(str, str)]] = None
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
+    env: Optional[Dict[str, ParamBase]] = None
+    to_downloads: Optional[List[Tuple[str, str]]] = None
+    to_uploads: Optional[List[Tuple[str, str]]] = None
+    stdout: Optional[ParamBase] = None
+    stderr: Optional[ParamBase] = None
