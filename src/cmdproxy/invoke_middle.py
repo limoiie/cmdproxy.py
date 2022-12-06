@@ -119,8 +119,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                     with contextlib.suppress(FileNotFoundError):
                         # download local output file, and remove from cloud
                         file_id = arg.download_(self.ctx.fs)
-
-                    self.ctx.fs.delete(file_id)
+                        self.ctx.fs.delete(file_id)
 
             else:
                 yield arg
