@@ -1,9 +1,12 @@
 import pathlib
+from collections import deque
+
+import parse
 
 from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
-from cmdproxy.invoke_params import InFileParam, OutFileParam, \
+from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
     ParamBase, StrParam
 from tests.fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
@@ -19,10 +22,19 @@ class TestProxyClientEnd:
 
         class MockTool(CommandTool):
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
-                for origin_arg, arg in zip(
-                        (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
-                         *(ctx.spec.env or dict()).values()),
-                        (*args, stdout, stderr, *(env or dict()).values())):
+                stack = deque(zip(
+                    (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
+                     *(ctx.spec.env or dict()).values()),
+                    (*args, stdout, stderr, *(env or dict()).values())))
+
+                while stack:
+                    origin_arg, arg = stack.popleft()
+
+                    # also check all sub-params of FormatParam
+                    if isinstance(origin_arg, FormatParam):
+                        assert isinstance(arg, FormatParam)
+                        stack.extend(zip(origin_arg.args, arg.args))
+
                     # assert all args are params,
                     assert isinstance(arg, ParamBase) if arg is not None \
                         else True
@@ -77,10 +89,19 @@ class TestProxyServerEnd:
 
         class MockTool(CommandTool):
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
-                for origin_arg, arg in zip(
-                        (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
-                         *(ctx.spec.env or dict()).values()),
-                        (*args, stdout, stderr, *(env or dict()).values())):
+                stack = deque(zip(
+                    (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
+                     *(ctx.spec.env or dict()).values()),
+                    (*args, stdout, stderr, *(env or dict()).values())))
+                while stack:
+                    origin_arg, arg = stack.popleft()
+
+                    # also check all sub-params of FormatParam
+                    if isinstance(origin_arg, FormatParam):
+                        assert isinstance(arg, str)
+                        args_ = parse.parse(origin_arg.tmpl, arg).fixed
+                        stack.extend(zip(origin_arg.args, args_))
+
                     # assert all StrParams have been as strings
                     if isinstance(origin_arg, StrParam):
                         assert origin_arg.value == arg

@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import os
 import pathlib
@@ -7,12 +8,12 @@ from typing import Any, Callable, List, Tuple
 import gridfs
 import pymongo
 import pytest
-import redis
+from redis import Redis
 from bson import ObjectId
 
 
 @pytest.fixture(scope='session')
-def redis() -> redis.Redis:
+def redis() -> Redis:
     if os.getenv('TESTENV_READY'):
         # todo: get redis conf from .github/workflow/...
         pass
@@ -38,6 +39,38 @@ def mongo() -> pymongo.MongoClient:
 
 
 @pytest.fixture(scope='session')
+def redis_uri(redis):
+    return uri_of_redis(redis)
+
+
+@pytest.fixture(scope='session')
+def mongo_uri(mongo):
+    return uri_of_mongo(mongo)
+
+
+def uri_of_redis(r: Redis) -> str:
+    conn = r.connection_pool.get_connection('echo')
+    return 'redis://%s:%d' % (conn.host, conn.port)
+
+
+def uri_of_mongo(m: pymongo.MongoClient) -> str:
+    # noinspection PyProtectedMember
+    kwargs = m._MongoClient__init_kwargs
+    host, port = kwargs['host'], kwargs['port']
+    port = port or 27017
+
+    host = host.rsplit('/', maxsplit=1)[-1]
+    if ':' in host:
+        _host, _port = host.rsplit(':', maxsplit=1)
+
+        with contextlib.suppress(ValueError):
+            port = int(_port)
+            host = _host
+
+    return 'mongodb://%s:%d' % (host, port)
+
+
+@pytest.fixture(scope='session')
 def grid_fs_maker(mongo) -> Callable[[str], gridfs.GridFS]:
     def make_grid_fs(database_name):
         return gridfs.GridFS(mongo.get_database(database_name))
@@ -49,9 +82,9 @@ def grid_fs_maker(mongo) -> Callable[[str], gridfs.GridFS]:
 def fake_local_file_maker(tmp_path, faker):
     paths = []
 
-    def make(**kwargs):
+    def make(content=None, **kwargs):
         _path = pathlib.Path(tempfile.mktemp(dir=tmp_path, **kwargs))
-        _path.write_text(faker.text())
+        _path.write_bytes(faker.text().encode() if content is None else content)
         paths.append(_path)
         return _path
 
@@ -103,8 +136,8 @@ def fake_local_path_maker(tmp_path):
 def fake_cloud_file_maker(tmp_path, faker):
     files: List[Tuple[gridfs.GridFS, ObjectId]] = []
 
-    def maker(fs: gridfs.GridFS, filename: str):
-        _content = faker.text().encode()
+    def maker(fs: gridfs.GridFS, filename: str, content=None):
+        _content = faker.text().encode() if content is None else content
         _file_id = fs.put(_content, filename=filename)
         files.append((fs, _file_id))
         return _content
@@ -125,3 +158,12 @@ class Raises:
 
 def case_name(case):
     return case.name
+
+
+@pytest.fixture(scope='session')
+def celery_config(redis_uri):
+    print(f'running celery with broker {redis_uri}, backend: {redis_uri}')
+    return {
+        'broker_url': redis_uri,
+        'result_backend': redis_uri,
+    }
