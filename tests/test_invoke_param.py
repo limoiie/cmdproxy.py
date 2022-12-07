@@ -253,16 +253,16 @@ def mp_case(request, fake_local_path_maker, faker):
         }
 
     elif meta.kind == 'format':
-        param = FormatParam(faker.text(), [
+        param = FormatParam(faker.text(), (
             ipath(fake_local_path_maker()),
             opath(fake_local_path_maker()),
-        ])
+        ))
         obj = {
             AutoDict.meta_of(type(param)).name: {
                 'tmpl': param.tmpl,
-                'args': [
+                'args': tuple(
                     arg.to_dict(meta.opts) for arg in param.args
-                ]
+                )
             }
         }
 

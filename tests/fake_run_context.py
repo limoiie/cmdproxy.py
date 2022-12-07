@@ -70,7 +70,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
 
     # the args that client may receive
     spec = FakeClientRunSpec(
-        command='bin/bash',
+        command='/bin/bash',
         args=[
             '-c',
             FormatParam(
