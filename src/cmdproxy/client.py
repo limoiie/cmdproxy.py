@@ -10,7 +10,6 @@ from cmdproxy.invoke_middle import PackAndSerializeMiddle, \
 
 class Client:
     def __init__(self, conf: CmdProxyClientConf, run: celery.Task):
-        # todo: resolve config or environment vars?
         @ProxyClientEndInvokeMiddle(conf.cloud_fs.grid_fs())
         @PackAndSerializeMiddle(fmt='json', options=Options(with_cls=False))
         def proxy(serialized: str):

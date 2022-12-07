@@ -11,7 +11,7 @@ import flexio
 import pytest
 from autodict import AutoDict, Options
 
-from cmdproxy.invoke_params import ConfigParam, FormatParam, InCloudFileParam, \
+from cmdproxy.invoke_params import EnvParam, FormatParam, InCloudFileParam, \
     InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ParamBase, StrParam, \
     ipath, opath
 from tests.conftest import case_name
@@ -267,10 +267,10 @@ def mp_case(request, fake_local_path_maker, faker):
         }
 
     elif meta.kind == 'config':
-        param = ConfigParam(faker.text())
+        param = EnvParam(faker.text())
         obj = {
             AutoDict.meta_of(type(param)).name: {
-                'param_key': param.param_key
+                'name': param.name
             }
         }
 

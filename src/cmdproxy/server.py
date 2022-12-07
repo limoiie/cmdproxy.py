@@ -11,7 +11,6 @@ from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
 
 class Server:
     def __init__(self, conf: CmdProxyServerConf):
-        # todo: resolve config or environment vars?
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
         @ProxyServerEndInvokeMiddle(conf.cloud_fs.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):

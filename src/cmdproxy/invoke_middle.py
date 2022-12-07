@@ -11,8 +11,8 @@ from autoserde import AutoSerde
 from gridfs import GridFS
 from registry import Registry
 
-from cmdproxy.invoke_params import ConfigParam, FormatParam, InFileParam, \
-    OutFileParam, ParamBase, RemoteConfigParam, StrParam
+from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
+    OutFileParam, ParamBase, RemoteEnvParam, StrParam
 from cmdproxy.run_request import RunRequest
 
 T = TypeVar('T')
@@ -91,6 +91,18 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg, key):
             yield StrParam(arg)
 
+    @ArgGuard.register(param=EnvParam)
+    class EnvGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: EnvParam, key):
+            yield StrParam(os.getenv(arg.name, ''))
+
+    @ArgGuard.register(param=RemoteEnvParam)
+    class RemoteEnvGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: RemoteEnvParam, key):
+            yield EnvParam(arg.name)
+
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass
     class InFileGuard(ArgGuard):
@@ -161,6 +173,12 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg: StrParam, key):
             yield arg.value
 
+    @ArgGuard.register(param=EnvParam)
+    class EnvGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: EnvParam, key):
+            yield StrParam(os.getenv(arg.name, ''))
+
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass
     class InFileGuard(ArgGuard):
@@ -197,27 +215,6 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
             with contextlib.ExitStack() as stack:
                 args = self.ctx.wrap_args_rec(stack, arg.args)
                 yield arg.tmpl.format(*args)
-
-
-class ConfigInvokeMiddle(InvokeMiddle):
-    def __init__(self, config):
-        self.config: dict = config
-
-    def _guarder(self, arg: T, key=None) -> T or str:
-        if isinstance(arg, ConfigParam):
-            if arg.param_key not in self.config:
-                raise KeyError(
-                    f'Failed to fetch config for key: {arg.param_key}, available '
-                    f'config keys are {set(self.config.keys())}.')
-            return self.config[arg.param_key]
-        return arg
-
-
-class ConfigProxyInvokeMiddle(ConfigInvokeMiddle):
-    def _guarder(self, arg: T, key=None) -> T or str:
-        if isinstance(arg, RemoteConfigParam):
-            return ConfigParam(arg.param_key)
-        return super()._guarder(arg, key)
 
 
 @dataclasses.dataclass

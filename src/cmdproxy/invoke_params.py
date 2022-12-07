@@ -45,12 +45,12 @@ P = TypeVar('P', bound=ParamBase)
 
 
 @dataclasses.dataclass
-class ConfigParam(ParamBase):
-    param_key: str
+class EnvParam(ParamBase):
+    name: str
 
 
 @dataclasses.dataclass
-class RemoteConfigParam(ConfigParam):
+class RemoteEnvParam(EnvParam):
     pass
 
 
