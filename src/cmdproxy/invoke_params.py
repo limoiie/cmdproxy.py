@@ -23,7 +23,7 @@ class ParamBase(Dictable):
         return {sub_name: self._subclass_to_dict(options=options)}
 
     @classmethod
-    def _from_dict(cls, obj: dict, options: autodict.Options) -> 'P':
+    def _from_dict(cls, obj: dict, options: autodict.Options) -> 'DerivedParam':
         if cls is ParamBase:
             sub_name, sub_obj = obj.popitem()
             sub_cls = AutoDict.query(name=sub_name)
@@ -41,7 +41,7 @@ class ParamBase(Dictable):
         return dataclass_from_dict(cls, obj, options)
 
 
-P = TypeVar('P', bound=ParamBase)
+DerivedParam = TypeVar('DerivedParam', bound=ParamBase)
 
 
 @dataclasses.dataclass
