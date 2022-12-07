@@ -68,9 +68,9 @@ class InvokeMiddle:
         pass
 
 
+@dataclasses.dataclass
 class ProxyClientEndInvokeMiddle(InvokeMiddle):
-    def __init__(self, fs: GridFS):
-        self.fs: GridFS = fs
+    fs: GridFS
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
         guard_cls: Any = self.ArgGuard.query(
@@ -137,9 +137,9 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                 yield arg
 
 
+@dataclasses.dataclass
 class ProxyServerEndInvokeMiddle(InvokeMiddle):
-    def __init__(self, fs: GridFS):
-        self.fs: GridFS = fs
+    fs: GridFS
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
         guard_cls: Any = self.ArgGuard.query(

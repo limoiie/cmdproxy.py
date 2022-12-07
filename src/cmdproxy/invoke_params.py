@@ -1,17 +1,18 @@
 import dataclasses
-import os
 import pathlib
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from socket import gethostname
-from typing import IO, Tuple, TypeVar, Union
+from typing import Optional, Tuple, TypeVar, Union
 
 import autodict
 import flexio
+import parse
 from autodict import AutoDict, Dictable
 from autodict.predefined import dataclass_from_dict, dataclass_to_dict
 from bson import ObjectId
+from flexio.flexio import FilePointer
 from gridfs import GridFS, GridOut
 
 
@@ -54,8 +55,7 @@ class RemoteConfigParam(ConfigParam):
 
 
 LINK_REGEX = re.compile(r'<#:([io])>(.+?)</>')
-CLOUD_URL_REGEX = re.compile(r'@([^:]+):(.+)')
-CLOUD_URL = '@{hostname}:{abspath}'
+CLOUD_URL_PATTERN = '@{hostname}:{abspath}'
 LOCAL_HOSTNAME = gethostname()
 
 
@@ -88,8 +88,8 @@ class FileParamBase(ParamBase):
 
     @property
     def cloud_url(self):
-        return CLOUD_URL.format(hostname=self.hostname,
-                                abspath=self.filepath.as_posix())
+        return CLOUD_URL_PATTERN.format(hostname=self.hostname,
+                                        abspath=self.filepath.as_posix())
 
     @property
     def filename(self):
@@ -118,9 +118,8 @@ class FileParamBase(ParamBase):
             fs.delete(f._id)
         return f._id
 
-    def download(self, fs: GridFS,
-                 fp: IO[bytes] or os.PathLike or str or None = None) \
-            -> Tuple[ObjectId, bytes] or Tuple[ObjectId, None]:
+    def download(self, fs: GridFS, fp: Optional[FilePointer] = None) \
+            -> Tuple[ObjectId, Optional[bytes]]:
         with flexio.FlexBinaryIO(fp, 'wb+') as tgt:
             with self.find_on_cloud(fs) as src:
                 tgt.write(src.read())
@@ -133,9 +132,8 @@ class FileParamBase(ParamBase):
             # noinspection PyProtectedMember
             return src._id, None
 
-    def upload(self, fs: GridFS,
-               fp: IO[bytes] or os.PathLike or str or None = None,
-               body: bytes or None = None) -> ObjectId:
+    def upload(self, fs: GridFS, fp: Optional[FilePointer] = None,
+               body: Optional[bytes] = None) -> ObjectId:
         with flexio.FlexBinaryIO(fp, 'rb', init=body) as src:
             return fs.put(src, filename=self.cloud_url)
 
@@ -225,7 +223,7 @@ def ipath(ref: Union[str, pathlib.Path]) \
 
 
 def opath(ref: Union[str, pathlib.Path]) \
-        -> OutLocalFileParam or OutCloudFileParam:
+        -> Union[OutLocalFileParam, OutCloudFileParam]:
     """
     Create either an OutLocalFileParam or an OutCloudFileParam according to url.
 
@@ -262,11 +260,11 @@ def _file(url, is_input):
     if isinstance(url, Path):
         return InLocalFileParam(url) if is_input else OutLocalFileParam(url)
 
-    m = CLOUD_URL_REGEX.match(url)
+    m = parse.parse(CLOUD_URL_PATTERN, url)
     if not m:
         return InLocalFileParam(url) if is_input else OutLocalFileParam(url)
 
-    hostname, filepath = m.groups()
+    hostname, filepath = m['hostname'], m['abspath']
 
     return InCloudFileParam(filepath, hostname) if is_input else \
         OutCloudFileParam(filepath, hostname)
