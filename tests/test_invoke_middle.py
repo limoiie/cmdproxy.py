@@ -1,9 +1,9 @@
+import dataclasses
 import pathlib
 from collections import deque
 
 import parse
 
-from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
 from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
@@ -20,7 +20,10 @@ class TestProxyClientEnd:
         ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                              fake_local_file_maker)
 
-        class MockTool(CommandTool):
+        @dataclasses.dataclass
+        class MockTool:
+            command: str
+
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
                 stack = deque(zip(
                     (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
@@ -56,7 +59,7 @@ class TestProxyClientEnd:
                 return ctx.ret_code
 
         im = ProxyClientEndInvokeMiddle(fs)
-        tool = im.wrap(tool=MockTool(ctx.spec.command))
+        tool = im.wrap(func=MockTool(ctx.spec.command))
 
         ret = tool(*ctx.spec.args,
                    stdout=ctx.spec.stdout,
@@ -87,7 +90,10 @@ class TestProxyServerEnd:
         ctx = create_fake_server_run_content(faker, fake_local_path_maker,
                                              fake_cloud_file_maker, fs)
 
-        class MockTool(CommandTool):
+        @dataclasses.dataclass
+        class MockTool:
+            command: str
+
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
                 stack = deque(zip(
                     (*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
@@ -126,7 +132,7 @@ class TestProxyServerEnd:
                 return ctx.ret_code
 
         im = ProxyServerEndInvokeMiddle(fs)
-        tool = im.wrap(tool=MockTool(ctx.spec.command))
+        tool = im.wrap(func=MockTool(ctx.spec.command))
 
         ret = tool(*ctx.spec.args,
                    stdout=ctx.spec.stdout,

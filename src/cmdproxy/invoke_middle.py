@@ -3,35 +3,46 @@ import contextlib
 import dataclasses
 import os
 import tempfile
+import traceback
 from abc import abstractmethod
 from typing import Any, Callable, ContextManager, Optional, TypeVar
 
 import autodict
 from autoserde import AutoSerde
+from celery.utils.log import get_task_logger
 from gridfs import GridFS
 from registry import Registry
 
+from cmdproxy.errors import ServerEndException
 from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
     OutFileParam, ParamBase, RemoteEnvParam, StrParam
-from cmdproxy.run_request import RunRequest
+from cmdproxy.protocol import RunRequest, RunResponse
 
 T = TypeVar('T')
 
+logger = get_task_logger('cmd-proxy')
 
-class InvokeMiddle:
+
+class Middle:
+    @abstractmethod
+    def wrap(self, func: Callable) -> Callable:
+        pass
+
+
+class InvokeMiddle(Middle):
     class ArgGuard(abc.ABC):
         @abstractmethod
         def guard(self, arg, key: str) -> ContextManager:
             pass
 
-    def __call__(self, tool: Callable):
-        return self.wrap(tool)
+    def __call__(self, func: Callable):
+        return self.wrap(func)
 
-    def wrap(self, tool: Callable) -> Callable:
+    def wrap(self, func: Callable) -> Callable:
         """
         Wrap a command for preprocessing its args before calling it.
 
-        :param tool: the command going to be wrapped
+        :param func: the command going to be wrapped
         :return: the wrapped command
         """
 
@@ -39,7 +50,7 @@ class InvokeMiddle:
             with contextlib.ExitStack() as stack:
                 args, kwargs = self.wrap_args_rec(stack, args), \
                     self.wrap_args_rec(stack, kwargs)
-                return tool(*args, **kwargs)
+                return func(*args, **kwargs)
 
         return wrapped
 
@@ -218,14 +229,14 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
 
 
 @dataclasses.dataclass
-class PackAndSerializeMiddle:
+class PackAndSerializeMiddle(Middle):
     fmt: str
     options: Optional[autodict.Options] = None
 
-    def __call__(self, tool: Callable[[str], T]) -> Callable[[Any, ...], T]:
-        return self.wrap(tool)
+    def __call__(self, func: Callable[[str], str]) -> Callable[..., int]:
+        return self.wrap(func)
 
-    def wrap(self, tool: Callable[[str], T]) -> Callable[[Any, ...], T]:
+    def wrap(self, func: Callable[[str], str]) -> Callable[..., int]:
         def wrapped(command, args, stdout, stderr, env, cwd):
             run_request = RunRequest(
                 command=command,
@@ -235,32 +246,60 @@ class PackAndSerializeMiddle:
                 env=env,
                 cwd=cwd,
             )
-            return tool(AutoSerde.serialize(
+
+            serialized_response = func(AutoSerde.serialize(
                 run_request, fmt=self.fmt, options=self.options))
+            run_response = AutoSerde.deserialize(
+                body=serialized_response, cls=RunResponse, fmt=self.fmt,
+                options=self.options)
+
+            if run_response.exc is not None:
+                raise ServerEndException(run_response.exc)
+
+            return run_response.return_code
 
         return wrapped
 
 
 @dataclasses.dataclass
-class DeserializeAndUnpackMiddle:
+class DeserializeAndUnpackMiddle(Middle):
     fmt: str
     options: Optional[autodict.Options]
 
-    def __call__(self, tool: Callable) -> Callable[[str], T]:
-        return self.wrap(tool)
+    def __call__(self, func: Callable) -> Callable[[str], str]:
+        return self.wrap(func)
 
-    def wrap(self, tool: Callable) -> Callable[[str], T]:
-        def wrapped(serialized: str):
+    def wrap(self, func: Callable) -> Callable[[str], str]:
+        def wrapped(serialized_request: str):
+            logger.info(f'Received request: {serialized_request}')
+
             run_request = AutoSerde.deserialize(
-                body=serialized, cls=RunRequest, fmt=self.fmt,
+                body=serialized_request, cls=RunRequest, fmt=self.fmt,
                 options=self.options)
-            return tool(
-                command=run_request.command,
-                args=run_request.args,
-                stdout=run_request.stdout,
-                stderr=run_request.stderr,
-                env=run_request.env,
-                cwd=run_request.cwd
-            )
+
+            try:
+                ret_code = func(
+                    command=run_request.command,
+                    args=run_request.args,
+                    stdout=run_request.stdout,
+                    stderr=run_request.stderr,
+                    env=run_request.env,
+                    cwd=run_request.cwd
+                )
+                full_exc = None
+                exc = None
+
+            except Exception as e:
+                ret_code = -1
+                full_exc = traceback.format_exc()
+                exc = e
+
+            logger.warning(f'Failed to run the command: {exc}\n  {full_exc}')
+
+            run_response = RunResponse(ret_code, full_exc)
+            serialized = AutoSerde.serialize(run_response, fmt=self.fmt,
+                                             options=self.options)
+
+            return serialized
 
         return wrapped

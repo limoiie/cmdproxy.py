@@ -2,7 +2,7 @@ from autodict import Options
 from autoserde import AutoSerde
 
 from cmdproxy.invoke_params import FormatParam, StrParam, ipath, opath
-from cmdproxy.run_request import RunRequest
+from cmdproxy.protocol import RunRequest
 
 
 def test_serde(faker, fake_local_path_maker):

@@ -14,3 +14,9 @@ class RunRequest:
     to_uploads: Optional[List[Tuple[str, str]]] = None
     stdout: Optional[ParamBase] = None
     stderr: Optional[ParamBase] = None
+
+
+@dataclass
+class RunResponse:
+    return_code: int
+    exc: Optional[str]

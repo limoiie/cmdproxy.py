@@ -1,7 +1,9 @@
+import subprocess
+
 from autodict import Options
+from flexio import FlexBinaryIO
 
 from cmdproxy.celery_app.config import CmdProxyServerConf
-from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
     ProxyServerEndInvokeMiddle
 
@@ -11,14 +13,11 @@ class Server:
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
         @ProxyServerEndInvokeMiddle(conf.cloud_fs.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):
-            return_code = CommandTool(command)(
-                *args,
-                stdout=stdout,
-                stderr=stderr,
-                env=env,
-                cwd=cwd)
-            # todo: collect command err
-            return return_code
+            with FlexBinaryIO(stdout, mode='wb+') as out, \
+                    FlexBinaryIO(stderr, mode='wb+') as err:
+                res = subprocess.run([command, *args], env=env, cwd=cwd,
+                                     stdout=out, stderr=err)
+            return res.returncode
 
         self._proxy = proxy
         self._conf = conf

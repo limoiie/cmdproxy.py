@@ -7,7 +7,7 @@ from autoserde import AutoSerde
 
 from cmdproxy.client import Client
 from cmdproxy.invoke_params import FileParamBase, FormatParam, StrParam
-from cmdproxy.run_request import RunRequest
+from cmdproxy.protocol import RunRequest, RunResponse
 from cmdproxy.server import Server
 from tests.fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
@@ -28,7 +28,8 @@ def test_client(redis, mongo, celery_session_app, celery_session_worker,
     @celery_session_app.task
     def mock_server_end(serialized_request: str):
         run_request = AutoSerde.deserialize(body=serialized_request,
-                                            cls=RunRequest, fmt='json')
+                                            cls=RunRequest, fmt='json',
+                                            options=Options(with_cls=False))
         stack = deque(zip(
             [*ctx.spec.args, ctx.spec.stdout, ctx.spec.stderr,
              *ctx.spec.env.values()],
@@ -52,7 +53,9 @@ def test_client(redis, mongo, celery_session_app, celery_session_worker,
             if isinstance(origin_arg, FileParamBase):
                 assert arg == origin_arg.as_cloud()
 
-        return ctx.ret_code
+        run_response = RunResponse(ctx.ret_code, None)
+        return AutoSerde.serialize(run_response, fmt='json',
+                                   options=Options(with_cls=False))
 
     celery_session_worker.reload()
 
@@ -91,9 +94,12 @@ def test_server(redis, mongo, faker, fake_cloud_file_maker,
                                      options=Options(with_cls=False))
 
     server = Server(cmdproxy_server_config)
-    ret = server.run(serialized)
+    serialized_response = server.run(serialized)
 
-    assert ctx.ret_code == ret
+    run_response = AutoSerde.deserialize(body=serialized_response,
+                                         cls=RunResponse, fmt='json',
+                                         options=Options(with_cls=False))
+    assert ctx.ret_code == run_response.return_code
 
     # assert all outputs are uploaded
     for output_content, out_param in ctx.outputs.values():
