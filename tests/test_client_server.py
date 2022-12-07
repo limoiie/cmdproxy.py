@@ -13,8 +13,8 @@ from tests.fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
 
 
-def test_client(redis, mongo, celery_app, celery_worker, faker,
-                fake_local_path_maker, fake_local_file_maker,
+def test_client(redis, mongo, celery_session_app, celery_session_worker,
+                faker, fake_local_path_maker, fake_local_file_maker,
                 cmdproxy_client_config):
     """
     Test the client with a mock server. Assertions will be fired when the mock
@@ -25,7 +25,7 @@ def test_client(redis, mongo, celery_app, celery_worker, faker,
     ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                          fake_local_file_maker)
 
-    @celery_app.task
+    @celery_session_app.task
     def mock_server_end(serialized_request: str):
         run_request = AutoSerde.deserialize(body=serialized_request,
                                             cls=RunRequest, fmt='json')
@@ -54,7 +54,7 @@ def test_client(redis, mongo, celery_app, celery_worker, faker,
 
         return ctx.ret_code
 
-    celery_worker.reload()
+    celery_session_worker.reload()
 
     client = Client(cmdproxy_client_config, cast(celery.Task, mock_server_end))
     ret = client.run(
@@ -76,7 +76,7 @@ def test_server(redis, mongo, faker, fake_cloud_file_maker,
     fired when the server is ready to return. Since no client involved, the
     celery is offline during testing.
     """
-    fs = cmdproxy_server_config.celery.grid_fs()
+    fs = cmdproxy_server_config.cloud_fs.grid_fs()
     ctx = create_fake_server_run_content(faker, fake_local_path_maker,
                                          fake_cloud_file_maker, fs)
     run_request = RunRequest(
@@ -109,8 +109,8 @@ def test_server(redis, mongo, faker, fake_cloud_file_maker,
         assert not output_path.exists()
 
 
-def test_integrated(redis, mongo, celery_app, celery_worker, faker,
-                    fake_local_path_maker, fake_local_file_maker,
+def test_integrated(redis, mongo, celery_session_app, celery_session_worker,
+                    faker, fake_local_path_maker, fake_local_file_maker,
                     cmdproxy_client_config, cmdproxy_server_config):
     """
     Integration test. The client will send a well-made real-world request to the
@@ -118,7 +118,7 @@ def test_integrated(redis, mongo, celery_app, celery_worker, faker,
     testing, celery should be online. Assertion will be made after client
     received the result returned by server.
     """
-    fs = cmdproxy_server_config.celery.grid_fs()
+    fs = cmdproxy_server_config.cloud_fs.grid_fs()
     ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                          fake_local_file_maker)
 

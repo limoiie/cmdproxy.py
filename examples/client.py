@@ -6,9 +6,9 @@ from cmdproxy import client, ipath, opath
 
 
 def main(redis_url, mongo_url):
-    from cmdproxy.celery_app.tasks import run
+    conf = client.startup_app(redis_url=redis_url, mongo_url=mongo_url)
 
-    conf = client.startup_app(redis_uri=redis_url, mongo_uri=mongo_url)
+    from cmdproxy.celery_app.tasks import run
     res = client.Client(conf, cast(celery.Task, run)).run(
         'echo', [
             '-x=10',

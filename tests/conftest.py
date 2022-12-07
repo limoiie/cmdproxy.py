@@ -11,8 +11,7 @@ import pytest
 from bson import ObjectId
 from redis import Redis
 
-from cmdproxy.celery_app.config import init_client_end_conf, \
-    init_server_end_conf
+from cmdproxy.celery_app.config import init_client_conf, init_server_conf
 
 
 @pytest.fixture(scope='session')
@@ -42,12 +41,12 @@ def mongo() -> pymongo.MongoClient:
 
 
 @pytest.fixture(scope='session')
-def redis_uri(redis):
+def redis_url(redis):
     return uri_of_redis(redis)
 
 
 @pytest.fixture(scope='session')
-def mongo_uri(mongo):
+def mongo_url(mongo):
     return uri_of_mongo(mongo)
 
 
@@ -164,32 +163,32 @@ def case_name(case):
 
 
 @pytest.fixture(scope='session')
-def cmdproxy_server_config(redis_uri, mongo_uri):
-    conf = init_server_end_conf(redis_uri=redis_uri,
-                                mongo_uri=mongo_uri,
-                                mongodb_name='test-cmdproxy',
-                                command_palette_path=pathlib.Path(
+def cmdproxy_server_config(redis_url, mongo_url):
+    conf = init_server_conf(redis_url=redis_url,
+                            mongo_url=mongo_url,
+                            mongodb_name='test-cmdproxy',
+                            command_palette_path=pathlib.Path(
                                     'command-palette.yaml'))
     yield conf
 
 
 @pytest.fixture(scope='session')
-def cmdproxy_client_config(redis_uri, mongo_uri):
-    conf = init_client_end_conf(redis_uri=redis_uri,
-                                mongo_uri=mongo_uri,
-                                mongodb_name='test-cmdproxy')
+def cmdproxy_client_config(redis_url, mongo_url):
+    conf = init_client_conf(redis_url=redis_url,
+                            mongo_url=mongo_url,
+                            mongodb_name='test-cmdproxy')
     yield conf
 
 
 @pytest.fixture(scope='session')
 def celery_config(cmdproxy_client_config, cmdproxy_server_config):
-    redis_uri = cmdproxy_client_config.celery.redis_uri
-    mongo_uri = cmdproxy_client_config.celery.mongo_uri
+    broker_url = cmdproxy_client_config.celery.broker_url
+    backend_url = cmdproxy_client_config.celery.backend_url
 
-    print(f'running celery with broker {redis_uri}, backend: {mongo_uri}')
+    print(f'running celery with broker {broker_url}, backend: {backend_url}')
     return {
-        'broker_url': redis_uri,
-        'result_backend': mongo_uri,
+        'broker_url': broker_url,
+        'result_backend': backend_url,
     }
 
 
