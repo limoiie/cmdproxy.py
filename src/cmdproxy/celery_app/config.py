@@ -1,6 +1,6 @@
 import dataclasses
 import pathlib
-from typing import Optional
+from typing import Optional, Union
 
 import yaml
 
@@ -68,7 +68,7 @@ _app_client_conf: Optional[CmdProxyClientConf] = None
 
 
 def init_server_conf(redis_url: str, mongo_url: str, mongodb_name: str,
-                     command_palette_path: pathlib.Path):
+                     command_palette_path: Union[str, pathlib.Path]):
     global _app_server_conf
 
     with open(command_palette_path) as f:
@@ -78,7 +78,7 @@ def init_server_conf(redis_url: str, mongo_url: str, mongodb_name: str,
         celery=__init_celery_conf(redis_url, mongo_url),
         cloud_fs=CloudFSConf(mongo_url, mongodb_name),
         command_palette=command_palette,
-        command_palette_file=command_palette_path
+        command_palette_file=pathlib.Path(command_palette_path)
     )
     return _app_server_conf
 
@@ -114,14 +114,14 @@ def get_server_end_conf() -> CmdProxyServerConf:
     return _app_server_conf
 
 
-def get_client_end_conf() -> CmdProxyServerConf:
+def get_client_end_conf() -> CmdProxyClientConf:
     if _app_client_conf is None:
         raise RuntimeError(
             f'Uninitialized: you must initialize cmdproxy client config via '
             f'`:py:func:init_client_conf` before accessing it.'
         )
 
-    return _app_server_conf
+    return _app_client_conf
 
 
 def __init_celery_conf(broker_url: str, backend_url: str):

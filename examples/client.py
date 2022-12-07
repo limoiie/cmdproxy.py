@@ -2,14 +2,13 @@ from typing import cast
 
 import celery
 
-from cmdproxy import client, ipath, opath
+from cmdproxy import init_client_conf, ipath, opath, Client
 
 
 def main(redis_url, mongo_url):
-    conf = client.startup_app(redis_url=redis_url, mongo_url=mongo_url)
+    init_client_conf(redis_url=redis_url, mongo_url=mongo_url)
 
-    from cmdproxy.celery_app.tasks import run
-    res = client.Client(conf, cast(celery.Task, run)).run(
+    res = Client.instance().run(
         'echo', [
             '-x=10',
             ('-i=%s', ipath(r'./local-path.i')),

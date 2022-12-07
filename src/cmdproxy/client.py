@@ -3,7 +3,7 @@ from typing import cast
 import celery
 from autodict import Options
 
-from cmdproxy.celery_app.config import CmdProxyClientConf, init_client_conf
+from cmdproxy.celery_app.config import CmdProxyClientConf
 from cmdproxy.invoke_middle import PackAndSerializeMiddle, \
     ProxyClientEndInvokeMiddle
 
@@ -29,10 +29,10 @@ class Client:
                            env=env,
                            cwd=cwd)
 
+    @staticmethod
+    def instance():
+        from cmdproxy.celery_app.config import get_client_end_conf
+        from cmdproxy.celery_app.tasks import run
 
-def startup_app(redis_url, mongo_url, mongodb_name='cmdproxy'):
-    from cmdproxy.celery_app.tasks import run
-
-    conf = init_client_conf(redis_url, mongo_url, mongodb_name)
-
-    return Client(conf, cast(celery.Task, run))
+        conf = get_client_end_conf()
+        return Client(conf, cast(celery.Task, run))

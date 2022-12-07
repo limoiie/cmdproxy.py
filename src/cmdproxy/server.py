@@ -1,9 +1,6 @@
-import pathlib
-from typing import Union
-
 from autodict import Options
 
-from cmdproxy.celery_app.config import CmdProxyServerConf, init_server_conf
+from cmdproxy.celery_app.config import CmdProxyServerConf
 from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
     ProxyServerEndInvokeMiddle
@@ -29,10 +26,9 @@ class Server:
     def run(self, serialized_request: str):
         return self._proxy(serialized_request)
 
+    @staticmethod
+    def instance():
+        from cmdproxy.celery_app.config import get_server_end_conf
 
-def startup_app(redis_url: str, mongo_url: str, mongodb_name: str,
-                command_palette_path: Union[str, pathlib.Path]):
-    conf = init_server_conf(redis_url, mongo_url, mongodb_name,
-                            pathlib.Path(command_palette_path))
-
-    return Server(conf)
+        conf = get_server_end_conf()
+        return Server(conf)

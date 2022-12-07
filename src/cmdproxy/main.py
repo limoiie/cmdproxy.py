@@ -1,11 +1,11 @@
 import fire
 
-from cmdproxy import server
+from cmdproxy import init_server_conf
 
 
 def launch(redis_url: str, mongo_url: str, mongodb_name: str,
            command_palette_path: str):
-    server.startup_app(redis_url, mongo_url, mongodb_name, command_palette_path)
+    init_server_conf(redis_url, mongo_url, mongodb_name, command_palette_path)
 
     from cmdproxy.celery_app.app import app
     app.start()
