@@ -8,8 +8,11 @@ from typing import Any, Callable, List, Tuple
 import gridfs
 import pymongo
 import pytest
-from redis import Redis
 from bson import ObjectId
+from redis import Redis
+
+from cmdproxy.celery_app.config import init_client_end_conf, \
+    init_server_end_conf
 
 
 @pytest.fixture(scope='session')
@@ -161,9 +164,37 @@ def case_name(case):
 
 
 @pytest.fixture(scope='session')
-def celery_config(redis_uri):
-    print(f'running celery with broker {redis_uri}, backend: {redis_uri}')
+def cmdproxy_server_config(redis_uri, mongo_uri):
+    conf = init_server_end_conf(redis_uri=redis_uri,
+                                mongo_uri=mongo_uri,
+                                mongodb_name='test-cmdproxy',
+                                command_palette_path=pathlib.Path(
+                                    'command-palette.yaml'))
+    yield conf
+
+
+@pytest.fixture(scope='session')
+def cmdproxy_client_config(redis_uri, mongo_uri):
+    conf = init_client_end_conf(redis_uri=redis_uri,
+                                mongo_uri=mongo_uri,
+                                mongodb_name='test-cmdproxy')
+    yield conf
+
+
+@pytest.fixture(scope='session')
+def celery_config(cmdproxy_client_config, cmdproxy_server_config):
+    redis_uri = cmdproxy_client_config.celery.redis_uri
+    mongo_uri = cmdproxy_client_config.celery.mongo_uri
+
+    print(f'running celery with broker {redis_uri}, backend: {mongo_uri}')
     return {
         'broker_url': redis_uri,
-        'result_backend': redis_uri,
+        'result_backend': mongo_uri,
     }
+
+
+@pytest.fixture(scope='session')
+def celery_includes(cmdproxy_client_config, cmdproxy_server_config):
+    return [
+        'cmdproxy.celery_app.tasks',
+    ]

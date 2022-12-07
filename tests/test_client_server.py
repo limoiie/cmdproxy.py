@@ -1,4 +1,3 @@
-import pathlib
 from collections import deque
 from typing import cast
 
@@ -6,22 +5,23 @@ import celery
 from autodict import Options
 from autoserde import AutoSerde
 
-from cmdproxy.celery_app.config import init_client_end_conf, \
-    init_server_end_conf
 from cmdproxy.client import Client
 from cmdproxy.invoke_params import FileParamBase, FormatParam, StrParam
 from cmdproxy.run_request import RunRequest
 from cmdproxy.server import Server
-from tests.conftest import uri_of_mongo, uri_of_redis
 from tests.fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
 
 
 def test_client(redis, mongo, celery_app, celery_worker, faker,
-                fake_local_path_maker, fake_local_file_maker):
-    conf = init_client_end_conf(redis_uri=uri_of_redis(redis),
-                                mongo_uri=uri_of_mongo(mongo),
-                                mongodb_name='test-cmdproxy-client')
+                fake_local_path_maker, fake_local_file_maker,
+                cmdproxy_client_config):
+    """
+    Test the client with a mock server. Assertions will be fired when the mock
+    server receives the request, and when the client receives the return from
+    the mock server end. During testing, the celery app and worker should be
+    online.
+    """
     ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                          fake_local_file_maker)
 
@@ -56,7 +56,7 @@ def test_client(redis, mongo, celery_app, celery_worker, faker,
 
     celery_worker.reload()
 
-    client = Client.instantiate(conf, cast(celery.Task, mock_server_end))
+    client = Client(cmdproxy_client_config, cast(celery.Task, mock_server_end))
     ret = client.run(
         command=ctx.spec.command,
         args=ctx.spec.args,
@@ -70,13 +70,13 @@ def test_client(redis, mongo, celery_app, celery_worker, faker,
 
 
 def test_server(redis, mongo, faker, fake_cloud_file_maker,
-                fake_local_path_maker):
-    conf = init_server_end_conf(redis_uri=uri_of_redis(redis),
-                                mongo_uri=uri_of_mongo(mongo),
-                                mongodb_name='test-cmdproxy-server',
-                                command_palette_path=pathlib.Path(
-                                    'command-palette.yaml'))
-    fs = conf.celery.grid_fs()
+                fake_local_path_maker, cmdproxy_server_config):
+    """
+    Test the server alone with a serialized request. The assertions will be
+    fired when the server is ready to return. Since no client involved, the
+    celery is offline during testing.
+    """
+    fs = cmdproxy_server_config.celery.grid_fs()
     ctx = create_fake_server_run_content(faker, fake_local_path_maker,
                                          fake_cloud_file_maker, fs)
     run_request = RunRequest(
@@ -90,7 +90,7 @@ def test_server(redis, mongo, faker, fake_cloud_file_maker,
     serialized = AutoSerde.serialize(run_request, fmt='json',
                                      options=Options(with_cls=False))
 
-    server = Server.instantiate(conf)
+    server = Server(cmdproxy_server_config)
     ret = server.run(serialized)
 
     assert ctx.ret_code == ret

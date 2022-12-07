@@ -6,10 +6,9 @@ from cmdproxy.celery_app.config import CmdProxyServerConf, init_server_end_conf
 from cmdproxy.command_tool import CommandTool
 from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
     ProxyServerEndInvokeMiddle
-from cmdproxy.singleton import Singleton
 
 
-class Server(Singleton):
+class Server:
     def __init__(self, conf: CmdProxyServerConf):
         # todo: resolve config or environment vars?
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
@@ -36,4 +35,4 @@ def startup_app(redis_uri: str, mongo_uri: str, mongodb_name: str,
     conf = init_server_end_conf(redis_uri, mongo_uri, mongodb_name,
                                 pathlib.Path(command_palette_path))
 
-    return Server.instantiate(conf)
+    return Server(conf)

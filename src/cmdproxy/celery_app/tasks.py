@@ -9,11 +9,12 @@ logger = get_task_logger('cmd-proxy')
 def run(serialized_request: str):
     import traceback
     from cmdproxy import server
+    from cmdproxy.celery_app.config import get_server_end_conf
 
     logger.info(f'Received request: {serialized_request}')
 
     try:
-        ret_code = server.Server.instance().run(serialized_request)
+        ret_code = server.Server(get_server_end_conf()).run(serialized_request)
         # todo: handle response = RunCompleteResponse(ret_code, err=tool.err())
         return ret_code
     except KeyError as e:
