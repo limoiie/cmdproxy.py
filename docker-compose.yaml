@@ -30,8 +30,6 @@ services:
       - CMDPROXY_REDIS_URL=redis://broker:6379
       - CMDPROXY_MONGO_URL=mongodb://backend:27017
       - CMDPROXY_MONGODB_NAME=cmdproxy
-    profiles:
-      - server
 
   client:
     build:
