@@ -39,6 +39,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "pytest-celery", "pytest-mock", "faker"]
+tests = ["faker", "pytest", "pytest-celery", "pytest-mock", "testcontainers"]
 
 [tool.setuptools_scm]
