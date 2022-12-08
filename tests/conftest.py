@@ -80,6 +80,16 @@ def grid_fs_maker(mongo) -> Callable[[str], gridfs.GridFS]:
     yield make_grid_fs
 
 
+@pytest.fixture(scope='session')
+def resource():
+    resource_root = pathlib.Path(__file__).parent
+
+    def find(relpath):
+        return (resource_root / relpath).resolve()
+
+    return find
+
+
 @pytest.fixture(scope='function')
 def fake_local_file_maker(tmp_path, faker):
     paths = []
@@ -163,12 +173,12 @@ def case_name(case):
 
 
 @pytest.fixture(scope='session')
-def cmdproxy_server_config(redis_url, mongo_url):
+def cmdproxy_server_config(redis_url, mongo_url, resource):
     conf = init_server_conf(redis_url=redis_url,
                             mongo_url=mongo_url,
                             mongodb_name='test-cmdproxy',
-                            command_palette_path=pathlib.Path(
-                                    './tests/command-palette.yaml'))
+                            command_palette_path=resource(
+                                'command-palette.yaml'))
     yield conf
 
 
