@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  backend:
+    image: mongo:latest
+    container_name: py-cmdproxy-backend
+    networks:
+      - overlay
+    ports:
+      - "27017:27017"
+
+  broker:
+    image: redis:latest
+    container_name: py-cmdproxy-broker
+    networks:
+      - overlay
+    ports:
+      - "6379:6379"
+
+  cmdproxy:
+    build: .
+    image: cmdproxy.py:volatile
+    container_name: py-cmdproxy-server
+    depends_on:
+      - backend
+      - broker
+    networks:
+      - overlay
+    environment:
+      - CMDPROXY_REDIS_URL=redis://broker:6379
+      - CMDPROXY_MONGO_URL=mongodb://backend:27017
+      - CMDPROXY_MONGODB_NAME=cmdproxy
+    profiles:
+      - server
+
+  client:
+    build:
+      context: .
+      dockerfile: ./examples/Dockerfile.client
+      args:
+        - CMDPROXY_VERSION=volatile
+    image: cmdproxy.py/examples/client:volatile
+    container_name: py-cmdproxy-client
+    depends_on:
+      - backend
+      - broker
+    networks:
+      - overlay
+    environment:
+      - CMDPROXY_REDIS_URL=redis://broker:6379
+      - CMDPROXY_MONGO_URL=mongodb://backend:27017
+      - CMDPROXY_MONGODB_NAME=cmdproxy
+    profiles:
+      - client
+
+networks:
+  overlay:

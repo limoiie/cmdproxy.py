@@ -1,0 +1,7 @@
+ARG CMDPROXY_VERSION=0.0.1
+
+FROM cmdproxy.py:${CMDPROXY_VERSION}
+
+COPY ./examples /cmdproxy/examples
+
+ENTRYPOINT ["python", "/cmdproxy/examples/client.py"]

@@ -41,3 +41,20 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+
+  run-examples:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Launch cmdproxy server and underline databases
+      run: |
+        docker compose --profile server up -d
+    - name: Run cmdproxy client
+      run: |
+        docker compose run --rm client
+    - name: Shutdown cmdproxy server and underline databases
+      run: |
+        docker compose --profile server down
