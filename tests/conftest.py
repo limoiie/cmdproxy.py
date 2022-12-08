@@ -177,7 +177,7 @@ def cmdproxy_server_config(redis_url, mongo_url, resource):
     conf = init_server_conf(redis_url=redis_url,
                             mongo_url=mongo_url,
                             mongodb_name='test-cmdproxy',
-                            command_palette_path=resource(
+                            command_palette=resource(
                                 'command-palette.yaml'))
     yield conf
 

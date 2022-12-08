@@ -79,7 +79,7 @@ def test_server(redis, mongo, faker, fake_cloud_file_maker,
     fired when the server is ready to return. Since no client involved, the
     celery is offline during testing.
     """
-    fs = cmdproxy_server_config.cloud_fs.grid_fs()
+    fs = cmdproxy_server_config.cloud.grid_fs()
     ctx = create_fake_server_run_content(faker, fake_local_path_maker,
                                          fake_cloud_file_maker, fs)
     run_request = RunRequest(
@@ -124,7 +124,7 @@ def test_integrated(redis, mongo, celery_session_app, celery_session_worker,
     testing, celery should be online. Assertion will be made after client
     received the result returned by server.
     """
-    fs = cmdproxy_client_config.cloud_fs.grid_fs()
+    fs = cmdproxy_client_config.cloud.grid_fs()
     ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                          fake_local_file_maker)
 

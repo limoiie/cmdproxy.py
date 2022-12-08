@@ -1,8 +1,10 @@
 import dataclasses
-import pathlib
+import os
+from pathlib import Path
 from typing import Optional, Union
 
 import yaml
+from autoserde import AutoSerde
 
 
 @dataclasses.dataclass
@@ -42,13 +44,13 @@ class CmdProxyServerConf:
     celery: CeleryConf
 
     # transit cloud filesystem
-    cloud_fs: CloudFSConf
+    cloud: CloudFSConf
 
     # a dict mapping tool names to command paths
-    command_palette: dict
+    command_palette: Optional[dict]
 
     # the path of this config file
-    command_palette_file: pathlib.Path
+    command_palette_path: Optional[Path]
 
 
 @dataclasses.dataclass
@@ -57,7 +59,7 @@ class CmdProxyClientConf:
     celery: CeleryConf
 
     # transit cloud filesystem
-    cloud_fs: CloudFSConf
+    cloud: CloudFSConf
 
 
 _celery_conf: Optional[CeleryConf] = None
@@ -67,28 +69,80 @@ _app_server_conf: Optional[CmdProxyServerConf] = None
 _app_client_conf: Optional[CmdProxyClientConf] = None
 
 
-def init_server_conf(redis_url: str, mongo_url: str, mongodb_name: str,
-                     command_palette_path: Union[str, pathlib.Path]):
+@dataclasses.dataclass
+class CmdProxyServerConfFile:
+    redis_url: Optional[str] = 'redis://localhost:6379'
+    mongo_url: Optional[str] = 'mongodb://localhost:27017'
+    mongodb_name: Optional[str] = 'cmdproxy'
+    command_palette: Union[str, None] = None
+
+
+@dataclasses.dataclass
+class CmdProxyClientConfFile:
+    redis_url: Optional[str] = 'redis://localhost:6379'
+    mongo_url: Optional[str] = 'mongodb://localhost:27017'
+    mongodb_name: Optional[str] = 'cmdproxy'
+
+
+def init_server_conf(conf_path: Union[str, Path, None] = None, *,
+                     redis_url: Optional[str] = None,
+                     mongo_url: Optional[str] = None,
+                     mongodb_name: Optional[str] = None,
+                     command_palette: Union[str, Path, None] = None):
     global _app_server_conf
 
-    with open(command_palette_path) as f:
-        command_palette = yaml.safe_load(f)
+    conf_path = conf_path or (Path.home() / '.cmdproxy' / 'server.yaml')
+    conf = AutoSerde.deserialize(conf_path, cls=CmdProxyServerConfFile) \
+        if os.path.exists(conf_path) else CmdProxyServerConfFile()
+
+    redis_url = redis_url or os.getenv('CMDPROXY_REDIS_URL') or conf.redis_url
+    mongo_url = mongo_url or os.getenv('CMDPROXY_MONGO_URL') or conf.mongo_url
+    mongodb_name = \
+        mongodb_name or \
+        os.getenv('CMDPROXY_MONGODB_NAME') or \
+        conf.mongodb_name
+    command_palette = \
+        command_palette or \
+        os.getenv('CMDPROXY_COMMAND_PALETTE') or \
+        conf.command_palette
+
+    if command_palette and os.path.exists(command_palette):
+        with open(command_palette) as f:
+            command_palette_path = Path(command_palette)
+            command_palette = yaml.safe_load(f)
+    else:
+        command_palette_path = None
+        command_palette = None
 
     _app_server_conf = CmdProxyServerConf(
         celery=__init_celery_conf(redis_url, mongo_url),
-        cloud_fs=CloudFSConf(mongo_url, mongodb_name),
+        cloud=CloudFSConf(mongo_url, mongodb_name),
         command_palette=command_palette,
-        command_palette_file=pathlib.Path(command_palette_path)
+        command_palette_path=command_palette_path
     )
     return _app_server_conf
 
 
-def init_client_conf(redis_url: str, mongo_url: str, mongodb_name: str):
+def init_client_conf(conf_path: Union[str, Path, None] = None, *,
+                     redis_url: Optional[str] = None,
+                     mongo_url: Optional[str] = None,
+                     mongodb_name: Optional[str] = None):
     global _app_client_conf
+
+    conf_path = conf_path or (Path.home() / '.cmdproxy' / 'client.yaml')
+    conf = AutoSerde.deserialize(conf_path, cls=CmdProxyClientConfFile) \
+        if os.path.exists(conf_path) else CmdProxyClientConfFile()
+
+    redis_url = redis_url or os.getenv('CMDPROXY_REDIS_URL') or conf.redis_url
+    mongo_url = mongo_url or os.getenv('CMDPROXY_MONGO_URL') or conf.mongo_url
+    mongodb_name = \
+        mongodb_name or \
+        os.getenv('CMDPROXY_MONGODB_NAME') or \
+        conf.mongodb_name
 
     _app_client_conf = CmdProxyClientConf(
         celery=__init_celery_conf(redis_url, mongo_url),
-        cloud_fs=CloudFSConf(mongo_url, mongodb_name),
+        cloud=CloudFSConf(mongo_url, mongodb_name),
     )
     return _app_client_conf
 
