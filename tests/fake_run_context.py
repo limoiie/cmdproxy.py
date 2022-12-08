@@ -3,18 +3,18 @@ import pathlib
 from typing import Dict, List, Optional, Tuple, Union
 
 from cmdproxy import ipath, opath
-from cmdproxy.invoke_params import DerivedParam, FormatParam, InLocalFileParam, \
-    OutFileParam, OutLocalFileParam, ParamBase, StrParam
+from cmdproxy.invoke_params import FormatParam, InLocalFileParam, OutFileParam, \
+    OutLocalFileParam, ParamBase, StrParam
 
 
 @dataclasses.dataclass
 class FakeClientRunSpec:
-    command: Union[str, DerivedParam]
-    args: List[Union[str, DerivedParam]]
-    stdout: Optional[Union[str, DerivedParam]]
-    stderr: Optional[Union[str, DerivedParam]]
-    env: Optional[Dict[str, Union[str, DerivedParam]]]
-    cwd: Optional[Union[str, DerivedParam]]
+    command: Union[str, ParamBase]
+    args: List[Union[str, ParamBase]]
+    stdout: Optional[Union[str, ParamBase]]
+    stderr: Optional[Union[str, ParamBase]]
+    env: Optional[Dict[str, Union[str, ParamBase]]]
+    cwd: Optional[Union[str, ParamBase]]
 
 
 @dataclasses.dataclass
@@ -31,8 +31,8 @@ class FakeServerRunSpec:
     args: List[ParamBase]
     stdout: Optional[ParamBase]
     stderr: Optional[ParamBase]
-    env: Optional[Dict[str, Union[str, DerivedParam]]]
-    cwd: Optional[Union[str, DerivedParam]]
+    env: Optional[Dict[str, Union[str, ParamBase]]]
+    cwd: Optional[Union[str, ParamBase]]
 
 
 @dataclasses.dataclass
