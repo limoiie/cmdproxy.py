@@ -294,7 +294,8 @@ class DeserializeAndUnpackMiddle(Middle):
                 full_exc = traceback.format_exc()
                 exc = e
 
-            logger.warning(f'Failed to run the command: {exc}\n  {full_exc}')
+            if exc or full_exc:
+                logger.warning(f'Failed to run the command: {exc}\n{full_exc}')
 
             run_response = RunResponse(ret_code, full_exc)
             serialized = AutoSerde.serialize(run_response, fmt=self.fmt,
