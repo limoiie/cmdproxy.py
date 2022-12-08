@@ -9,16 +9,16 @@ import gridfs
 import pymongo
 import pytest
 from bson import ObjectId
-from redis import Redis
+from redis import Redis, from_url as redis_from_url
 
 from cmdproxy.celery_app.config import init_client_conf, init_server_conf
 
 
 @pytest.fixture(scope='session')
 def redis() -> Redis:
-    if os.getenv('TESTENV_READY'):
-        # todo: get redis conf from .github/workflow/...
-        pass
+    url = os.getenv('TEST_CMDPROXY_REDIS', default=None)
+    if url:
+        return redis_from_url(url)
 
     else:
         import testcontainers.redis
@@ -29,9 +29,9 @@ def redis() -> Redis:
 
 @pytest.fixture(scope='session')
 def mongo() -> pymongo.MongoClient:
-    if os.getenv('TESTENV_READY'):
-        # todo: get redis conf from .github/workflow/...
-        pass
+    url = os.getenv('TEST_CMDPROXY_MONGO', default=None)
+    if url:
+        return pymongo.MongoClient(url)
 
     else:
         import testcontainers.mongodb
