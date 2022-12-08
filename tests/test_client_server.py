@@ -9,7 +9,7 @@ from cmdproxy.client import Client
 from cmdproxy.invoke_params import FileParamBase, FormatParam, StrParam
 from cmdproxy.protocol import RunRequest, RunResponse
 from cmdproxy.server import Server
-from tests.fake_run_context import create_fake_client_run_content, \
+from fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
 
 

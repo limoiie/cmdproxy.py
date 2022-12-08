@@ -14,7 +14,7 @@ from autodict import AutoDict, Options
 from cmdproxy.invoke_params import EnvParam, FormatParam, InCloudFileParam, \
     InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ParamBase, StrParam, \
     ipath, opath
-from tests.conftest import case_name
+from conftest import case_name
 
 MMeta = namedtuple('MetaDataMake', 'absolute,is_cloud,is_in,name')
 MCase = namedtuple('CaseDataMake',

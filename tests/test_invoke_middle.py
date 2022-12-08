@@ -8,7 +8,7 @@ from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
 from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
     ParamBase, StrParam
-from tests.fake_run_context import create_fake_client_run_content, \
+from fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
 
 
