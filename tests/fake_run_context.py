@@ -73,10 +73,10 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
         args=[
             '-c',
             FormatParam(
-                'cat {} > {}', (
-                    make_input_local_file(some_content),
-                    make_output_local_path(some_content),
-                )
+                'cat {input} > {output}', {
+                    'input': make_input_local_file(some_content),
+                    'output': make_output_local_path(some_content),
+                }
             ),
         ],
         stdout=make_output_local_path(b''),
@@ -117,10 +117,10 @@ def create_fake_server_run_content(faker, fake_local_path_maker,
         args=[
             StrParam('-c'),
             FormatParam(
-                'cat {} > {}', (
-                    make_input_cloud_file(some_content),
-                    make_output_cloud_file(some_content),
-                )
+                'cat {input} > {output}', {
+                    'input': make_input_cloud_file(some_content),
+                    'output': make_output_cloud_file(some_content),
+                }
             ),
         ],
         stdout=make_output_cloud_file(b''),

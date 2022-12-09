@@ -36,7 +36,8 @@ class TestProxyClientEnd:
                     # also check all sub-params of FormatParam
                     if isinstance(origin_arg, FormatParam):
                         assert isinstance(arg, FormatParam)
-                        stack.extend(zip(origin_arg.args, arg.args))
+                        stack.extend(
+                            zip(origin_arg.args.values(), arg.args.values()))
 
                     # assert all args are params,
                     assert isinstance(arg, ParamBase) if arg is not None \
@@ -105,8 +106,9 @@ class TestProxyServerEnd:
                     # also check all sub-params of FormatParam
                     if isinstance(origin_arg, FormatParam):
                         assert isinstance(arg, str)
-                        args_ = parse.parse(origin_arg.tmpl, arg).fixed
-                        stack.extend(zip(origin_arg.args, args_))
+                        args_ = parse.parse(origin_arg.tmpl, arg).named
+                        stack.extend(
+                            zip(origin_arg.args.values(), args_.values()))
 
                     # assert all StrParams have been as strings
                     if isinstance(origin_arg, StrParam):

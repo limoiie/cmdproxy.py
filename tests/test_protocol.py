@@ -13,9 +13,9 @@ def test_serde(faker, fake_local_path_maker):
             StrParam(faker.name()),
             ipath(fake_local_path_maker()).as_cloud(),
             opath(fake_local_path_maker()).as_cloud(),
-            FormatParam('--path={}', (
-                ipath(fake_local_path_maker()).as_cloud(),
-            )),
+            FormatParam('--path={path}', {
+                'path': ipath(fake_local_path_maker()).as_cloud(),
+            }),
         ),
         cwd=None,
         env={

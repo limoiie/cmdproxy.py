@@ -43,7 +43,7 @@ def test_client(redis, mongo, celery_session_app, celery_session_worker,
             # also check all sub-params of FormatParam
             if isinstance(origin_arg, FormatParam):
                 assert isinstance(arg, FormatParam)
-                stack.extend(zip(origin_arg.args, arg.args))
+                stack.extend(zip(origin_arg.args.values(), arg.args.values()))
 
             # assert all strings has become as StrParam
             if isinstance(origin_arg, str):

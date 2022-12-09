@@ -225,7 +225,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg: FormatParam, key: str):
             with contextlib.ExitStack() as stack:
                 args = self.ctx.wrap_args_rec(stack, arg.args)
-                yield arg.tmpl.format(*args)
+                yield arg.tmpl.format(**args)
 
 
 @dataclasses.dataclass

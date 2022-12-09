@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from socket import gethostname
-from typing import Optional, Tuple, TypeVar, Union
+from typing import Dict, Optional, Tuple, TypeVar, Union
 
 import autodict
 import flexio
@@ -236,7 +236,7 @@ def opath(ref: Union[str, pathlib.Path]) \
 @dataclasses.dataclass
 class FormatParam(ParamBase):
     tmpl: str
-    args: Tuple[Union[ParamBase], ...]
+    args: Dict[str, ParamBase]
 
 
 @dataclasses.dataclass

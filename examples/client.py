@@ -23,10 +23,10 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
         ret_code = client.run(
             '/bin/bash', [
                 '-c',
-                FormatParam('cat {} > {}', (
-                    ipath(in_file.name),
-                    opath(out_file.name)
-                )),
+                FormatParam('cat {input} > {output}', {
+                    'input': ipath(in_file.name),
+                    'output': opath(out_file.name)
+                }),
             ],
             stdout=ipath(stdout.name),
             stderr=opath(stderr.name),
