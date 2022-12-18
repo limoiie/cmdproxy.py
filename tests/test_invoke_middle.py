@@ -4,7 +4,7 @@ from collections import deque
 
 import parse
 
-from cmdproxy.invoke_middle import ProxyClientEndInvokeMiddle, \
+from cmdproxy.middles import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
 from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
     ParamBase, StrParam

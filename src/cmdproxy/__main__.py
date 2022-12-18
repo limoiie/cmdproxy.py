@@ -5,10 +5,10 @@ from cmdproxy.celery_app.config import init_server_conf
 
 def launch(*, conf_path: str = None, redis_url: str = None,
            mongo_url: str = None, mongodb_name: str = None,
-           command_palette: str = None, concurrency: int = None,
-           queues: str = None, hostname: str = None, detach: str = None,
-           time_limit: float = None, pool: str = None,
-           events: bool = None, loglevel: str = None):
+           command_palette: str = None, environments: str = None,
+           ext_queues: str = None, concurrency: int = None,
+           hostname: str = None, detach: str = None, time_limit: float = None,
+           pool: str = None, events: bool = None, loglevel: str = None):
     """
     Run the cmdproxy server.
 
@@ -26,8 +26,9 @@ def launch(*, conf_path: str = None, redis_url: str = None,
     :param command_palette: Path to command palette file. When not specified,
       read it from env var named `CMDPROXY_COMMAND_PALETTE`, or read from
       configuration file, or default as `None`.
+    :param environments: Path to a environment file.
+    :param ext_queues: A list of consume extended queues, separated by comma.
     :param concurrency: The number of working processes.
-    :param queues: A list of consume queues, separated by comma.
     :param hostname: Set custom hostname (e.g., 'w1@%%h').
       Expands: %%h (hostname), %%n (name) and %%d (domain).
     :param detach: Start worker as a background process.
@@ -39,9 +40,12 @@ def launch(*, conf_path: str = None, redis_url: str = None,
     :param loglevel: The log level, can be any one of ['DEBUG', 'INFO',
       'WARNING', 'ERROR', 'FATAL', 'CRITICAL'].
     """
-    init_server_conf(conf_path=conf_path, redis_url=redis_url,
-                     mongo_url=mongo_url, mongodb_name=mongodb_name,
-                     command_palette=command_palette)
+    conf = init_server_conf(conf_path=conf_path, redis_url=redis_url,
+                            mongo_url=mongo_url, mongodb_name=mongodb_name,
+                            command_palette=command_palette,
+                            environments=environments)
+    queues = ext_queues.split(',') if ext_queues else []
+    queues += list(conf.command_palette.keys())
 
     # noinspection PyProtectedMember
     from celery import maybe_patch_concurrency

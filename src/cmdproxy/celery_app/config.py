@@ -75,6 +75,7 @@ class CmdProxyServerConfFile:
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
     mongodb_name: Optional[str] = 'cmdproxy'
     command_palette: Union[str, None] = None
+    environments: Union[str, None] = None
 
 
 @dataclasses.dataclass
@@ -88,7 +89,8 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
                      redis_url: Optional[str] = None,
                      mongo_url: Optional[str] = None,
                      mongodb_name: Optional[str] = None,
-                     command_palette: Union[str, Path, None] = None):
+                     command_palette: Union[str, Path, None] = None,
+                     environments: Union[str, Path, None] = None):
     global _app_server_conf
 
     conf_path = conf_path or (Path.home() / '.cmdproxy' / 'server.yaml')
@@ -105,6 +107,10 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         command_palette or \
         os.getenv('CMDPROXY_COMMAND_PALETTE') or \
         conf.command_palette
+    environments = \
+        environments or \
+        os.getenv('CMDPROXY_ENVIRONMENTS') or \
+        conf.environments
 
     if command_palette and os.path.exists(command_palette):
         with open(command_palette) as f:
@@ -113,6 +119,13 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
     else:
         command_palette_path = None
         command_palette = None
+
+    if environments and os.path.exists(environments):
+        with open(environments) as f:
+            env = yaml.safe_load(f)
+
+        for key, val in env.items():
+            os.putenv(key, val)
 
     _app_server_conf = CmdProxyServerConf(
         celery=__init_celery_conf(redis_url, mongo_url),

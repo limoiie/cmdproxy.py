@@ -4,7 +4,7 @@ from autodict import Options
 from flexio import FlexBinaryIO
 
 from cmdproxy.celery_app.config import CmdProxyServerConf
-from cmdproxy.invoke_middle import DeserializeAndUnpackMiddle, \
+from cmdproxy.middles import DeserializeAndUnpackMiddle, \
     ProxyServerEndInvokeMiddle
 
 

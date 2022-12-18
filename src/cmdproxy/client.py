@@ -4,7 +4,7 @@ import celery
 from autodict import Options
 
 from cmdproxy.celery_app.config import CmdProxyClientConf
-from cmdproxy.invoke_middle import PackAndSerializeMiddle, \
+from cmdproxy.middles import PackAndSerializeMiddle, \
     ProxyClientEndInvokeMiddle
 
 
