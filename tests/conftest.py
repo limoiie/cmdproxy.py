@@ -203,6 +203,13 @@ def celery_config(cmdproxy_client_config, cmdproxy_server_config):
 
 
 @pytest.fixture(scope='session')
+def celery_worker_parameters():
+    return {
+        'queues': ('sh', 'celery'),
+    }
+
+
+@pytest.fixture(scope='session')
 def celery_includes(cmdproxy_client_config, cmdproxy_server_config):
     return [
         'cmdproxy.celery_app.tasks',

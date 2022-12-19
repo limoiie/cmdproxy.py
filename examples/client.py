@@ -21,7 +21,7 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
         in_file.flush()
 
         ret_code = client.run(
-            '/bin/bash', [
+            '/bin/sh', [
                 '-c',
                 FormatParam('cat {input} > {output}', {
                     'input': ipath(in_file.name),
@@ -31,7 +31,8 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
             stdout=ipath(stdout.name),
             stderr=opath(stderr.name),
             env=None,
-            cwd=None
+            cwd=None,
+            queue='sh'
         )
 
         print('Checking return code...')

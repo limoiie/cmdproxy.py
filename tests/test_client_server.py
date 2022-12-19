@@ -66,7 +66,8 @@ def test_client(redis, mongo, celery_session_app, celery_session_worker,
         stdout=ctx.spec.stdout,
         stderr=ctx.spec.stderr,
         env=ctx.spec.env,
-        cwd=ctx.spec.cwd
+        cwd=ctx.spec.cwd,
+        queue='sh'
     )
 
     assert ctx.ret_code == ret
@@ -135,7 +136,8 @@ def test_integrated(redis, mongo, celery_session_app, celery_session_worker,
         stdout=ctx.spec.stdout,
         stderr=ctx.spec.stderr,
         env=ctx.spec.env,
-        cwd=ctx.spec.cwd
+        cwd=ctx.spec.cwd,
+        queue='sh'
     )
 
     assert ctx.ret_code == ret
