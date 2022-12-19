@@ -16,7 +16,7 @@ from flexio.flexio import FilePointer
 from gridfs import GridFS, GridOut
 
 
-class ParamBase(Dictable):
+class Param(Dictable):
     def _to_dict(self, options: autodict.Options) -> dict:
         cls = type(self)
         sub_name = AutoDict.meta_of(cls).name
@@ -24,7 +24,7 @@ class ParamBase(Dictable):
 
     @classmethod
     def _from_dict(cls, obj: dict, options: autodict.Options) -> 'DerivedParam':
-        if cls is ParamBase:
+        if cls is Param:
             sub_name, sub_obj = obj.popitem()
             sub_cls = AutoDict.query(name=sub_name)
             return AutoDict.from_dict(sub_obj, cls=sub_cls, options=options)
@@ -40,12 +40,50 @@ class ParamBase(Dictable):
     def _subclass_from_dict(cls, obj: dict, options: autodict.Options):
         return dataclass_from_dict(cls, obj, options)
 
+    @staticmethod
+    def str(value: str) -> 'StrParam':
+        return StrParam(value=value)
 
-DerivedParam = TypeVar('DerivedParam', bound=ParamBase)
+    @staticmethod
+    def env(name: str) -> 'EnvParam':
+        return EnvParam(name=name)
+
+    @staticmethod
+    def remote_env(name: str) -> 'RemoteEnvParam':
+        return RemoteEnvParam(name=name)
+
+    @staticmethod
+    def ipath(ref: Union[str, pathlib.Path]) \
+            -> Union['InLocalFileParam', 'InCloudFileParam']:
+        """
+        Create either an InLocalFileParam or an InCloudFileParam according to url.
+
+        :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
+        :return: A sub instance of InFileParam.
+        """
+        return _file(ref, is_input=True)
+
+    @staticmethod
+    def opath(ref: Union[str, pathlib.Path]) \
+            -> Union['OutLocalFileParam', 'OutCloudFileParam']:
+        """
+        Create either an OutLocalFileParam or an OutCloudFileParam according to url.
+
+        :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
+        :return: A sub instance of OutFileParam.
+        """
+        return _file(ref, is_input=False)
+
+    @staticmethod
+    def format(tmpl, args):
+        return FormatParam(tmpl=tmpl, args=args)
+
+
+DerivedParam = TypeVar('DerivedParam', bound=Param)
 
 
 @dataclasses.dataclass
-class EnvParam(ParamBase):
+class EnvParam(Param):
     name: str
 
 
@@ -60,7 +98,7 @@ LOCAL_HOSTNAME = gethostname()
 
 
 @dataclasses.dataclass
-class FileParamBase(ParamBase):
+class FileParamBase(Param):
     filepath: Path
     hostname: str = LOCAL_HOSTNAME
 
@@ -211,47 +249,25 @@ class OutLocalFileParam(LocalFileParam, OutFileParam):
     pass
 
 
-def ipath(ref: Union[str, pathlib.Path]) \
-        -> Union[InLocalFileParam, InCloudFileParam]:
-    """
-    Create either an InLocalFileParam or an InCloudFileParam according to url.
-
-    :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
-    :return: A sub instance of InFileParam.
-    """
-    return _file(ref, is_input=True)
-
-
-def opath(ref: Union[str, pathlib.Path]) \
-        -> Union[OutLocalFileParam, OutCloudFileParam]:
-    """
-    Create either an OutLocalFileParam or an OutCloudFileParam according to url.
-
-    :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
-    :return: A sub instance of OutFileParam.
-    """
-    return _file(ref, is_input=False)
-
-
 @dataclasses.dataclass
-class FormatParam(ParamBase):
+class FormatParam(Param):
     tmpl: str
-    args: Dict[str, ParamBase]
+    args: Dict[str, Param]
 
 
 @dataclasses.dataclass
-class StrParam(ParamBase):
+class StrParam(Param):
     value: str
 
 
 def upload_as_in(fs: GridFS, path: Union[str, Path]) -> InCloudFileParam:
-    param = ipath(path).as_cloud()
+    param = Param.ipath(path).as_cloud()
     param.upload_(fs)
     return param
 
 
 def alloc_as_out(fs: GridFS, path: Union[str, Path]) -> OutCloudFileParam:
-    param = opath(path).as_cloud()
+    param = Param.opath(path).as_cloud()
     param.alloc_(fs)
     return param
 

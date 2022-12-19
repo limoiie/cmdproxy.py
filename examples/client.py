@@ -2,8 +2,7 @@ import tempfile
 
 import fire
 
-from cmdproxy import Client, init_client_conf, ipath, opath
-from cmdproxy.invoke_params import FormatParam
+from cmdproxy import Client, Param, init_client_conf
 
 
 def main(redis_url=None, mongo_url=None, mongodb_name=None):
@@ -15,7 +14,6 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
             tempfile.NamedTemporaryFile() as out_file, \
             tempfile.NamedTemporaryFile() as stdout, \
             tempfile.NamedTemporaryFile() as stderr:
-
         content = b'some random string...'
         in_file.write(content)
         in_file.flush()
@@ -23,13 +21,13 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
         ret_code = client.run(
             '/bin/sh', [
                 '-c',
-                FormatParam('cat {input} > {output}', {
-                    'input': ipath(in_file.name),
-                    'output': opath(out_file.name)
+                Param.format('cat {input} > {output}', {
+                    'input': Param.ipath(in_file.name),
+                    'output': Param.opath(out_file.name)
                 }),
             ],
-            stdout=ipath(stdout.name),
-            stderr=opath(stderr.name),
+            stdout=Param.ipath(stdout.name),
+            stderr=Param.opath(stderr.name),
             env=None,
             cwd=None,
             queue='sh'

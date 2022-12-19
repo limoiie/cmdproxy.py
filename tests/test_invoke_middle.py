@@ -4,10 +4,10 @@ from collections import deque
 
 import parse
 
+from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
+    Param, StrParam
 from cmdproxy.middles import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
-from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
-    ParamBase, StrParam
 from fake_run_context import create_fake_client_run_content, \
     create_fake_server_run_content
 
@@ -40,11 +40,10 @@ class TestProxyClientEnd:
                             zip(origin_arg.args.values(), arg.args.values()))
 
                     # assert all args are params,
-                    assert isinstance(arg, ParamBase) if arg is not None \
-                        else True
+                    assert isinstance(arg, Param) if arg is not None else True
 
                     # assert all the non-param args have been as StrParam
-                    if not isinstance(origin_arg, ParamBase):
+                    if not isinstance(origin_arg, Param):
                         assert isinstance(arg, StrParam)
 
                 # assert all inputs are uploaded

@@ -11,9 +11,8 @@ import flexio
 import pytest
 from autodict import AutoDict, Options
 
-from cmdproxy.invoke_params import EnvParam, FormatParam, InCloudFileParam, \
-    InLocalFileParam, OutCloudFileParam, OutLocalFileParam, ParamBase, StrParam, \
-    ipath, opath
+from cmdproxy.invoke_params import InCloudFileParam, InLocalFileParam, \
+    OutCloudFileParam, OutLocalFileParam, Param
 from conftest import case_name
 
 MMeta = namedtuple('MetaDataMake', 'absolute,is_cloud,is_in,name')
@@ -85,7 +84,7 @@ class TestFileParamConstruction:
     @pytest.mark.parametrize('make_case', cases, indirect=True, ids=case_name)
     def test_basic(self, make_case: MCase):
         case = make_case
-        param = ipath(case.ref) if case.is_in else opath(case.ref)
+        param = Param.ipath(case.ref) if case.is_in else Param.opath(case.ref)
 
         assert param.filepath == Path(case.fpath)
         assert param.is_cloud() == case.is_cloud
@@ -96,7 +95,7 @@ class TestFileParamConstruction:
     @pytest.mark.parametrize('make_case', cases, indirect=True, ids=case_name)
     def test_to_cloud(self, make_case: MCase):
         case = make_case
-        param = ipath(case.ref) if case.is_in else opath(case.ref)
+        param = Param.ipath(case.ref) if case.is_in else Param.opath(case.ref)
 
         cloud_param = param.as_cloud()
         assert cloud_param.is_cloud()
@@ -117,7 +116,7 @@ def upload_case(request, fake_local_file, grid_fs_maker):
 
     fs = grid_fs_maker('test_upload_db')
     content = fake_local_file.read_bytes()
-    param = ipath(fake_local_file)
+    param = Param.ipath(fake_local_file)
     ctx = contextlib.nullcontext()
 
     if meta.upload_type == 'bytes':
@@ -156,7 +155,7 @@ def download_case(request, fake_local_file, fake_cloud_file_maker,
     meta: DMeta = request.param
 
     fs = grid_fs_maker('test_download_db')
-    param = ipath(fake_local_file)
+    param = Param.ipath(fake_local_file)
     content = fake_cloud_file_maker(fs=fs, filename=param.cloud_url)
     ctx = contextlib.nullcontext()
 
@@ -234,8 +233,8 @@ def mp_case(request, fake_local_path_maker, faker):
     meta: TestParamSerde.Meta = request.param
 
     if meta.kind == 'file':
-        param = ipath(fake_local_path_maker()) if meta.conf['is_in'] else \
-            opath(fake_local_path_maker())
+        param = Param.ipath(fake_local_path_maker()) if meta.conf['is_in'] else \
+            Param.opath(fake_local_path_maker())
         param = param.as_cloud() if meta.conf['is_cloud'] else param
         obj = {
             AutoDict.meta_of(type(param)).name: {
@@ -245,7 +244,7 @@ def mp_case(request, fake_local_path_maker, faker):
         }
 
     elif meta.kind == 'str':
-        param = StrParam(faker.text())
+        param = Param.str(faker.text())
         obj = {
             AutoDict.meta_of(type(param)).name: {
                 'value': param.value,
@@ -253,9 +252,9 @@ def mp_case(request, fake_local_path_maker, faker):
         }
 
     elif meta.kind == 'format':
-        param = FormatParam("cat {input} > {output}", {
-            'input': ipath(fake_local_path_maker()),
-            'output': opath(fake_local_path_maker()),
+        param = Param.format("cat {input} > {output}", {
+            'input': Param.ipath(fake_local_path_maker()),
+            'output': Param.opath(fake_local_path_maker()),
         })
         obj = {
             AutoDict.meta_of(type(param)).name: {
@@ -268,7 +267,7 @@ def mp_case(request, fake_local_path_maker, faker):
         }
 
     elif meta.kind == 'config':
-        param = EnvParam(faker.text())
+        param = Param.env(faker.text())
         obj = {
             AutoDict.meta_of(type(param)).name: {
                 'name': param.name
@@ -340,7 +339,7 @@ class TestParamSerde:
     @pytest.mark.parametrize('mp_case', cases, indirect=True, ids=case_name)
     def test_to_dict(self, mp_case: Case, fake_local_path_maker):
         case = mp_case
-        param = cast(ParamBase, case.param)
+        param = cast(Param, case.param)
 
         if case.raises:
             with pytest.raises(case.raises.exc, **case.raises.kwargs):
@@ -354,7 +353,7 @@ class TestParamSerde:
         case = mp_case
         if case.raises:
             with pytest.raises(case.raises.exc, **case.raises.kwargs):
-                ParamBase.from_dict(case.obj, options=case.opts)
+                Param.from_dict(case.obj, options=case.opts)
             return
 
-        assert ParamBase.from_dict(case.obj, options=case.opts) == case.param
+        assert Param.from_dict(case.obj, options=case.opts) == case.param

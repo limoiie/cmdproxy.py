@@ -15,7 +15,7 @@ from registry import Registry
 
 from cmdproxy.errors import ServerEndException
 from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
-    OutFileParam, ParamBase, RemoteEnvParam, StrParam
+    OutFileParam, Param, RemoteEnvParam, StrParam
 from cmdproxy.protocol import RunRequest, RunResponse
 
 T = TypeVar('T')
@@ -93,26 +93,26 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
     class ArgGuard(InvokeMiddle.ArgGuard, Registry):
         ctx: 'ProxyClientEndInvokeMiddle'
 
-        def guard(self, arg, key) -> ContextManager[Optional[ParamBase]]:
+        def guard(self, arg, key) -> ContextManager[Optional[Param]]:
             pass
 
     @ArgGuard.register(param=StrParam)
     class AnyGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg, key):
-            yield StrParam(arg)
+            yield Param.str(arg)
 
     @ArgGuard.register(param=EnvParam)
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            yield StrParam(os.getenv(arg.name, ''))
+            yield Param.str(os.getenv(arg.name, ''))
 
     @ArgGuard.register(param=RemoteEnvParam)
     class RemoteEnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: RemoteEnvParam, key):
-            yield EnvParam(arg.name)
+            yield Param.env(arg.name)
 
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass
@@ -188,7 +188,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            yield StrParam(os.getenv(arg.name, ''))
+            yield Param.str(os.getenv(arg.name, ''))
 
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass

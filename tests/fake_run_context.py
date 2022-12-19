@@ -2,19 +2,18 @@ import dataclasses
 import pathlib
 from typing import Dict, List, Optional, Tuple, Union
 
-from cmdproxy import ipath, opath
-from cmdproxy.invoke_params import FormatParam, InLocalFileParam, OutFileParam, \
-    OutLocalFileParam, ParamBase, StrParam
+from cmdproxy.invoke_params import InLocalFileParam, OutFileParam, \
+    OutLocalFileParam, Param
 
 
 @dataclasses.dataclass
 class FakeClientRunSpec:
-    command: Union[str, ParamBase]
-    args: List[Union[str, ParamBase]]
-    stdout: Optional[Union[str, ParamBase]]
-    stderr: Optional[Union[str, ParamBase]]
-    env: Optional[Dict[str, Union[str, ParamBase]]]
-    cwd: Optional[Union[str, ParamBase]]
+    command: Union[str, Param]
+    args: List[Union[str, Param]]
+    stdout: Optional[Union[str, Param]]
+    stderr: Optional[Union[str, Param]]
+    env: Optional[Dict[str, Union[str, Param]]]
+    cwd: Optional[Union[str, Param]]
 
 
 @dataclasses.dataclass
@@ -27,12 +26,12 @@ class FakeClientRunCtx:
 
 @dataclasses.dataclass
 class FakeServerRunSpec:
-    command: ParamBase
-    args: List[ParamBase]
-    stdout: Optional[ParamBase]
-    stderr: Optional[ParamBase]
-    env: Optional[Dict[str, Union[str, ParamBase]]]
-    cwd: Optional[Union[str, ParamBase]]
+    command: Param
+    args: List[Param]
+    stdout: Optional[Param]
+    stderr: Optional[Param]
+    env: Optional[Dict[str, Union[str, Param]]]
+    cwd: Optional[Union[str, Param]]
 
 
 @dataclasses.dataclass
@@ -53,7 +52,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
     def make_output_local_path(content=None):
         """Create a local path, and assign it with fake content."""
         _path = fake_local_path_maker()
-        _param = opath(_path)
+        _param = Param.opath(_path)
         _content = faker.text().encode() if content is None else content
         outputs[_path] = (_content, _param)
         return _param
@@ -61,7 +60,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
     def make_input_local_file(content=None):
         """Create a local path pointing to a prepared file."""
         _path: pathlib.Path = fake_local_file_maker(content)
-        _param: InLocalFileParam = ipath(_path)
+        _param: InLocalFileParam = Param.ipath(_path)
         inputs.append((_path, _param))
         return _param
 
@@ -72,7 +71,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
         command='/bin/sh',
         args=[
             '-c',
-            FormatParam(
+            Param.format(
                 'cat {input} > {output}', {
                     'input': make_input_local_file(some_content),
                     'output': make_output_local_path(some_content),
@@ -97,14 +96,14 @@ def create_fake_server_run_content(faker, fake_local_path_maker,
 
     def make_input_cloud_file(content=None):
         path = fake_local_path_maker()
-        param = ipath(path).as_cloud()
+        param = Param.ipath(path).as_cloud()
         content = fake_cloud_file_maker(fs, param.cloud_url, content=content)
         inputs[param.cloud_url] = content
         return param
 
     def make_output_cloud_file(content=None):
         path = fake_local_path_maker()
-        param = opath(path).as_cloud()
+        param = Param.opath(path).as_cloud()
         content = faker.text().encode() if content is None else content
         outputs[param.cloud_url] = (content, param)
         return param
@@ -113,10 +112,10 @@ def create_fake_server_run_content(faker, fake_local_path_maker,
 
     # the args that a server may receive
     spec = FakeServerRunSpec(
-        command=StrParam('/bin/sh'),
+        command=Param.str('/bin/sh'),
         args=[
-            StrParam('-c'),
-            FormatParam(
+            Param.str('-c'),
+            Param.format(
                 'cat {input} > {output}', {
                     'input': make_input_cloud_file(some_content),
                     'output': make_output_cloud_file(some_content),

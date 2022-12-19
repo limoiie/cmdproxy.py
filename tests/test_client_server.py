@@ -6,7 +6,7 @@ from autodict import Options
 from autoserde import AutoSerde
 
 from cmdproxy.client import Client
-from cmdproxy.invoke_params import FileParamBase, FormatParam, StrParam
+from cmdproxy.invoke_params import FileParamBase, FormatParam, Param
 from cmdproxy.protocol import RunRequest, RunResponse
 from cmdproxy.server import Server
 from fake_run_context import create_fake_client_run_content, \
@@ -47,7 +47,7 @@ def test_client(redis, mongo, celery_session_app, celery_session_worker,
 
             # assert all strings has become as StrParam
             if isinstance(origin_arg, str):
-                assert arg == StrParam(origin_arg)
+                assert arg == Param.str(origin_arg)
 
             # assert all file param has become CloudFileParm
             if isinstance(origin_arg, FileParamBase):
