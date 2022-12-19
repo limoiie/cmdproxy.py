@@ -10,8 +10,11 @@ from cmdproxy.middles import DeserializeAndUnpackMiddle, \
 
 class Server:
     def __init__(self, conf: CmdProxyServerConf):
+        self._conf = conf
+
+    def run(self, serialized_request: str):
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
-        @ProxyServerEndInvokeMiddle(conf.cloud.grid_fs())
+        @ProxyServerEndInvokeMiddle(self._conf.cloud.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):
             with FlexBinaryIO(stdout, mode='wb+') as out, \
                     FlexBinaryIO(stderr, mode='wb+') as err:
@@ -19,11 +22,7 @@ class Server:
                                      stdout=out, stderr=err)
             return res.returncode
 
-        self._proxy = proxy
-        self._conf = conf
-
-    def run(self, serialized_request: str):
-        return self._proxy(serialized_request)
+        return proxy(serialized_request)
 
     @staticmethod
     def instance():

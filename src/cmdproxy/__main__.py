@@ -44,8 +44,8 @@ def launch(*, conf_path: str = None, redis_url: str = None,
                             mongo_url=mongo_url, mongodb_name=mongodb_name,
                             command_palette=command_palette,
                             environments=environments)
-    queues = ext_queues.split(',') if ext_queues else []
-    queues += list(conf.command_palette.keys())
+    queues = (ext_queues.split(',') if ext_queues else []) + \
+             list(conf.command_palette.keys())
 
     # noinspection PyProtectedMember
     from celery import maybe_patch_concurrency

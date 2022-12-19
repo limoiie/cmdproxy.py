@@ -10,21 +10,23 @@ from cmdproxy.middles import PackAndSerializeMiddle, \
 
 class Client:
     def __init__(self, conf: CmdProxyClientConf, run: celery.Task):
-        @ProxyClientEndInvokeMiddle(conf.cloud.grid_fs())
+        self._conf = conf
+        self._run = run
+
+    def run(self, command, args, stdout=None, stderr=None, env=None, cwd=None,
+            queue=None):
+        @ProxyClientEndInvokeMiddle(self._conf.cloud.grid_fs())
         @PackAndSerializeMiddle(fmt='json', options=Options(with_cls=False))
         def proxy(serialized: str) -> str:
-            return run.delay(serialized).get()
+            return self._run.apply_async(args=(serialized,),
+                                         queue=queue or str(command)).get()
 
-        self._proxy = proxy
-        self._conf = conf
-
-    def run(self, command, args, stdout=None, stderr=None, env=None, cwd=None):
-        return self._proxy(command=command,
-                           args=args,
-                           stdout=stdout,
-                           stderr=stderr,
-                           env=env,
-                           cwd=cwd)
+        return proxy(command=command,
+                     args=args,
+                     stdout=stdout,
+                     stderr=stderr,
+                     env=env,
+                     cwd=cwd)
 
     @staticmethod
     def instance():
