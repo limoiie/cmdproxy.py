@@ -1,3 +1,5 @@
+import os
+
 import fire
 
 from cmdproxy.celery_app.config import init_server_conf
@@ -26,7 +28,7 @@ def launch(*, conf_path: str = None, redis_url: str = None,
     :param command_palette: Path to command palette file. When not specified,
       read it from env var named `CMDPROXY_COMMAND_PALETTE`, or read from
       configuration file, or default as `None`.
-    :param environments: Path to a environment file.
+    :param environments: Path to an environment file.
     :param ext_queues: A list of consume extended queues, separated by comma.
     :param concurrency: The number of working processes.
     :param hostname: Set custom hostname (e.g., 'w1@%%h').
@@ -46,6 +48,7 @@ def launch(*, conf_path: str = None, redis_url: str = None,
                             environments=environments)
     queues = (ext_queues.split(',') if ext_queues else []) + \
              list(conf.command_palette.keys())
+    loglevel = loglevel or os.getenv('CMDPROXY_LOGLEVEL', None)
 
     # noinspection PyProtectedMember
     from celery import maybe_patch_concurrency

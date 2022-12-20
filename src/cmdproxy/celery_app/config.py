@@ -1,10 +1,14 @@
 import dataclasses
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Union
 
 import yaml
 from autoserde import AutoSerde
+from celery.utils.log import get_task_logger
+
+logger: logging.Logger = get_task_logger('cmd-proxy')
 
 
 @dataclasses.dataclass
@@ -91,6 +95,7 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
                      mongodb_name: Optional[str] = None,
                      command_palette: Union[str, Path, None] = None,
                      environments: Union[str, Path, None] = None):
+    logger.debug('init server configuration...')
     global _app_server_conf
 
     conf_path = conf_path or (Path.home() / '.cmdproxy' / 'server.yaml')
