@@ -77,7 +77,7 @@ _app_client_conf: Optional[CmdProxyClientConf] = None
 class CmdProxyServerConfFile:
     redis_url: Optional[str] = 'redis://localhost:6379'
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
-    mongodb_name: Optional[str] = 'cmdproxy'
+    mongodb_name: Optional[str] = 'cmdproxy-db'
     command_palette: Union[str, None] = None
     environments: Union[str, None] = None
 
@@ -86,7 +86,7 @@ class CmdProxyServerConfFile:
 class CmdProxyClientConfFile:
     redis_url: Optional[str] = 'redis://localhost:6379'
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
-    mongodb_name: Optional[str] = 'cmdproxy'
+    mongodb_name: Optional[str] = 'cmdproxy-db'
 
 
 def init_server_conf(conf_path: Union[str, Path, None] = None, *,

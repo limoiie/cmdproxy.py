@@ -1,7 +1,5 @@
 import tempfile
 
-import fire
-
 from cmdproxy import Client, Param, init_client_conf
 
 
@@ -26,7 +24,7 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
                     'output': Param.opath(out_file.name)
                 }),
             ],
-            stdout=Param.ipath(stdout.name),
+            stdout=Param.opath(stdout.name),
             stderr=Param.opath(stderr.name),
             env=None,
             cwd=None
@@ -48,4 +46,4 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
 
 
 if __name__ == '__main__':
-    fire.Fire(main)
+    main()
