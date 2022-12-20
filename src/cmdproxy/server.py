@@ -14,7 +14,7 @@ class Server:
 
     def run(self, serialized_request: str):
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
-        @ProxyServerEndInvokeMiddle(self._conf.cloud.grid_fs())
+        @ProxyServerEndInvokeMiddle(fs=self._conf.cloud.grid_fs())
         def proxy(command, args, stdout, stderr, env, cwd):
             with FlexBinaryIO(stdout, mode='wb+') as out, \
                     FlexBinaryIO(stderr, mode='wb+') as err:

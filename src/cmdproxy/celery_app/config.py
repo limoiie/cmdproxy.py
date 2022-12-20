@@ -51,7 +51,7 @@ class CmdProxyServerConf:
     cloud: CloudFSConf
 
     # a dict mapping tool names to command paths
-    command_palette: Optional[dict]
+    command_palette: dict
 
     # the path of this config file
     command_palette_path: Optional[Path]
@@ -117,20 +117,24 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         os.getenv('CMDPROXY_ENVIRONMENTS') or \
         conf.environments
 
-    if command_palette and os.path.exists(command_palette):
+    if command_palette:
+        assert os.path.exists(command_palette)
         with open(command_palette) as f:
             command_palette_path = Path(command_palette)
             command_palette = yaml.safe_load(f)
+
+        for key, val in command_palette.items():
+            os.environ[key] = val
     else:
         command_palette_path = None
-        command_palette = None
+        command_palette = dict()
 
     if environments and os.path.exists(environments):
         with open(environments) as f:
-            env = yaml.safe_load(f)
+            environ = yaml.safe_load(f)
 
-        for key, val in env.items():
-            os.putenv(key, val)
+        for key, val in environ.items():
+            os.environ[key] = val
 
     _app_server_conf = CmdProxyServerConf(
         celery=__init_celery_conf(redis_url, mongo_url),

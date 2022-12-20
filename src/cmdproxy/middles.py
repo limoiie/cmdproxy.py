@@ -84,8 +84,9 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
     fs: GridFS
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
+        arg_cls = type(arg)
         guard_cls: Any = self.ArgGuard.query(
-            fn=lambda m: isinstance(arg, m['param'])) or self.AnyGuard
+            fn=lambda m: issubclass(arg_cls, m['param'])) or self.AnyGuard
 
         return guard_cls(self)
 
@@ -106,7 +107,10 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            yield Param.str(os.getenv(arg.name, ''))
+            val = os.getenv(arg.name, None)
+            if val is None:
+                raise KeyError(f'No environment variable named as {arg.name}.')
+            yield Param.str(val)
 
     @ArgGuard.register(param=RemoteEnvParam)
     class RemoteEnvGuard(ArgGuard):
@@ -165,8 +169,9 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     fs: GridFS
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
+        arg_cls = type(arg)
         guard_cls: Any = self.ArgGuard.query(
-            fn=lambda m: isinstance(arg, m['param']))
+            fn=lambda m: issubclass(arg_cls, m['param'])) or self.AnyGuard
 
         return guard_cls(self)
 
@@ -188,7 +193,10 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            yield Param.str(os.getenv(arg.name, ''))
+            val = os.getenv(arg.name, None)
+            if val is None:
+                raise KeyError(f'No environment variable named as {arg.name}.')
+            yield val
 
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass

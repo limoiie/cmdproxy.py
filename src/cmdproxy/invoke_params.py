@@ -86,10 +86,16 @@ DerivedParam = TypeVar('DerivedParam', bound=Param)
 class EnvParam(Param):
     name: str
 
+    def __str__(self):
+        return self.name
+
 
 @dataclasses.dataclass
-class RemoteEnvParam(EnvParam):
-    pass
+class RemoteEnvParam(Param):
+    name: str
+
+    def __str__(self):
+        return self.name
 
 
 LINK_REGEX = re.compile(r'<#:([io])>(.+?)</>')
