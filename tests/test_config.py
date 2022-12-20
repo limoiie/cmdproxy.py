@@ -93,7 +93,7 @@ class TestServerConfig:
         fake_redis_url = faker.url(['redis'])
         fake_mongo_url = faker.url(['mongodb'])
         fake_mongodb_name = faker.first_name()
-        fake_command_palette = fake_local_file_maker()
+        fake_command_palette = fake_local_file_maker(content=b'sh: /bin/sh\n')
 
         init_server_conf(redis_url=fake_redis_url, mongo_url=fake_mongo_url,
                          mongodb_name=fake_mongodb_name,
@@ -111,7 +111,7 @@ class TestServerConfig:
         fake_redis_url = faker.url(['redis'])
         fake_mongo_url = faker.url(['mongodb'])
         fake_mongodb_name = faker.first_name()
-        fake_command_palette = fake_local_file_maker()
+        fake_command_palette = fake_local_file_maker(content=b'sh: /bin/sh\n')
 
         mocker.patch.dict(os.environ, {
             'CMDPROXY_REDIS_URL': fake_redis_url,
@@ -133,7 +133,7 @@ class TestServerConfig:
         fake_redis_url = faker.url(['redis'])
         fake_mongo_url = faker.url(['mongodb'])
         fake_mongodb_name = faker.first_name()
-        fake_command_palette = fake_local_file_maker()
+        fake_command_palette = fake_local_file_maker(b'sh: /bin/sh\n')
 
         content = f'''
 redis_url: {fake_redis_url}
