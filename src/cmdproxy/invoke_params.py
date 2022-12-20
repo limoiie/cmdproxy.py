@@ -41,10 +41,6 @@ class Param(Dictable):
         return dataclass_from_dict(cls, obj, options)
 
     @staticmethod
-    def str(value: str) -> 'StrParam':
-        return StrParam(value=value)
-
-    @staticmethod
     def env(name: str) -> 'EnvParam':
         return EnvParam(name=name)
 
@@ -77,6 +73,10 @@ class Param(Dictable):
     @staticmethod
     def format(tmpl, args):
         return FormatParam(tmpl=tmpl, args=args)
+
+    @staticmethod
+    def str(value: str) -> 'StrParam':
+        return StrParam(value=value)
 
 
 DerivedParam = TypeVar('DerivedParam', bound=Param)
