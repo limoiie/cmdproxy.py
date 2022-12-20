@@ -5,7 +5,7 @@ from cmdproxy.celery_app.app import app
 logger = get_task_logger('cmd-proxy')
 
 
-@app.task
+@app.task(name='run')
 def run(serialized_request: str):
     from cmdproxy.server import Server
 
