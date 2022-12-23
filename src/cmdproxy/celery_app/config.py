@@ -1,5 +1,6 @@
 import dataclasses
 import os
+import pprint
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -173,7 +174,7 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         command_palette=command_palette,
         command_palette_path=command_palette_path
     )
-    logger.debug(f'Server config: {_app_server_conf}')
+    logger.debug(f'Server config: \n{pprint.pformat(_app_server_conf)}')
     return _app_server_conf
 
 
@@ -209,7 +210,7 @@ def init_client_conf(conf_path: Union[str, Path, None] = None, *,
         celery=__init_celery_conf(redis_url, mongo_url, []),
         cloud=CloudFSConf(mongo_url, mongodb_name),
     )
-    logger.debug(f'Client config: {_app_server_conf}')
+    logger.debug(f'Client config: \n{pprint.pformat(_app_client_conf)}')
     return _app_client_conf
 
 
@@ -251,16 +252,15 @@ def get_client_end_conf() -> CmdProxyClientConf:
 def __init_logging_conf(loglevel: str):
     global _logging_conf
     _logging_conf.loglevel = loglevel
+
+    from cmdproxy.logging import init_logging
+    init_logging()
+
     return _logging_conf
 
 
 def __init_celery_conf(broker_url: str, backend_url: str, queues: List[str]):
     global _celery_conf
-
-    from cmdproxy.logging import get_logger
-    logger = get_logger(__name__)
-
     _celery_conf = CeleryConf(broker_url=broker_url, backend_url=backend_url,
                               queues=queues)
-    logger.debug(f'Celery config: {_celery_conf}')
     return _celery_conf

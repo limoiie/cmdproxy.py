@@ -16,6 +16,7 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
         in_file.write(content)
         in_file.flush()
 
+        print('Running...')
         ret_code = client.run(
             Param.remote_env('sh'), [
                 '-c',

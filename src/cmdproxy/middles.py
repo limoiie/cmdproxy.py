@@ -125,7 +125,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg: InFileParam, key):
             if arg.is_local():
                 logger.debug(
-                    f'Uploading local input {arg.filename} to '
+                    f'Uploading local input {arg.filepath} to '
                     f'{arg.as_cloud()}...')
 
                 # upload local input file to the cloud
@@ -152,7 +152,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                     with contextlib.suppress(FileNotFoundError):
                         logger.debug(
                             f'Downloading cloud output {arg.as_cloud()} uploaded '
-                            f'by server to {arg.filename()}...')
+                            f'by server to {arg.filepath}...')
 
                         # download local output file, and remove from cloud
                         file_id = arg.download_(self.ctx.fs)
@@ -213,7 +213,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg: InFileParam, key):
             with tempfile.TemporaryDirectory(prefix=arg.hostname) as workspace:
                 logger.debug(
-                    f'Downloading cloud input {arg.filename} uploaded by client '
+                    f'Downloading cloud input {arg.filepath} uploaded by client '
                     f'to {arg.as_cloud()}...')
 
                 # download from cloud to local temp path
@@ -236,7 +236,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
                 finally:
                     if os.path.exists(filepath):
                         logger.debug(
-                            f'Uploading local output {arg.filename} to '
+                            f'Uploading local output {arg.filepath} to '
                             f'{arg.as_cloud()}...')
 
                         arg.upload(self.ctx.fs, filepath)

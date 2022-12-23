@@ -30,6 +30,7 @@ classifiers = [
 dependencies = [
     "autoserde @ git+https://github.com/limoiie/autoserde.git@v0.0.5",
     "celery ~= 5.2.3",
+    "coloredlogs ~= 15.0.1",
     "fire ~= 0.4.0",
     "flexio @ git+https://github.com/limoiie/flexio.git@v0.0.2",
     "parse ~= 1.19.0",
