@@ -1,5 +1,3 @@
-import os
-
 import fire
 
 from cmdproxy.celery_app.config import init_server_conf
@@ -45,10 +43,7 @@ def launch(*, conf_path: str = None, redis_url: str = None,
     conf = init_server_conf(conf_path=conf_path, redis_url=redis_url,
                             mongo_url=mongo_url, mongodb_name=mongodb_name,
                             command_palette=command_palette,
-                            environments=environments)
-    queues = (ext_queues.split(',') if ext_queues else []) + \
-             list(conf.command_palette.keys())
-    loglevel = loglevel or os.getenv('CMDPROXY_LOGLEVEL', None)
+                            environments=environments, loglevel=loglevel)
 
     # noinspection PyProtectedMember
     from celery import maybe_patch_concurrency
@@ -57,9 +52,9 @@ def launch(*, conf_path: str = None, redis_url: str = None,
         maybe_patch_concurrency()
 
     argv = ['worker']
-    argv += [f'--queues', queues] if queues else []
+    argv += [f'--queues', conf.celery.queues]
     argv += [f'--concurrency', concurrency] if concurrency else []
-    argv += [f'--loglevel', loglevel] if loglevel else []
+    argv += [f'--loglevel', conf.logging.loglevel]
     argv += [f'--hostname', hostname] if hostname else []
     argv += [f'--detach'] if detach else []
     argv += [f'--time-limit', time_limit] if time_limit else []

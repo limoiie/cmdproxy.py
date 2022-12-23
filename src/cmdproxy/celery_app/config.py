@@ -1,14 +1,17 @@
 import dataclasses
-import logging
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import yaml
 from autoserde import AutoSerde
-from celery.utils.log import get_task_logger
 
-logger: logging.Logger = get_task_logger('cmd-proxy')
+from cmdproxy.logging import get_logger
+
+
+@dataclasses.dataclass
+class LoggingConfig:
+    loglevel: str = 'INFO'
 
 
 @dataclasses.dataclass
@@ -18,6 +21,9 @@ class CeleryConf:
 
     # url to the celery backend
     backend_url: str
+
+    # queues
+    queues: List[str]
 
 
 @dataclasses.dataclass
@@ -44,6 +50,9 @@ class CloudFSConf:
 
 @dataclasses.dataclass
 class CmdProxyServerConf:
+    # logging configuration
+    logging: LoggingConfig
+
     # celery configuration
     celery: CeleryConf
 
@@ -59,12 +68,17 @@ class CmdProxyServerConf:
 
 @dataclasses.dataclass
 class CmdProxyClientConf:
+    # logging configuration
+    logging: LoggingConfig
+
     # celery configuration
     celery: CeleryConf
 
     # transit cloud filesystem
     cloud: CloudFSConf
 
+
+_logging_conf: LoggingConfig = LoggingConfig()
 
 _celery_conf: Optional[CeleryConf] = None
 
@@ -80,6 +94,7 @@ class CmdProxyServerConfFile:
     mongodb_name: Optional[str] = 'cmdproxy-db'
     command_palette: Union[str, None] = None
     environments: Union[str, None] = None
+    logging_level: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -87,6 +102,7 @@ class CmdProxyClientConfFile:
     redis_url: Optional[str] = 'redis://localhost:6379'
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
     mongodb_name: Optional[str] = 'cmdproxy-db'
+    logging_level: Optional[str] = None
 
 
 def init_server_conf(conf_path: Union[str, Path, None] = None, *,
@@ -94,8 +110,9 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
                      mongo_url: Optional[str] = None,
                      mongodb_name: Optional[str] = None,
                      command_palette: Union[str, Path, None] = None,
-                     environments: Union[str, Path, None] = None):
-    logger.debug('init server configuration...')
+                     environments: Union[str, Path, None] = None,
+                     loglevel: Optional[str] = None,
+                     queues: Optional[str] = None):
     global _app_server_conf
 
     conf_path = conf_path or (Path.home() / '.cmdproxy' / 'server.yaml')
@@ -116,6 +133,15 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         environments or \
         os.getenv('CMDPROXY_ENVIRONMENTS') or \
         conf.environments
+    loglevel = \
+        loglevel or \
+        os.getenv('CMDPROXY_LOGLEVEL') or \
+        conf.logging_level
+
+    logging_conf = __init_logging_conf(loglevel)
+    logger = get_logger(__name__)
+
+    logger.debug('init server configuration...')
 
     if command_palette:
         assert os.path.exists(command_palette)
@@ -136,19 +162,26 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         for key, val in environ.items():
             os.environ[key] = val
 
+    queues = queues or os.getenv('CMDPROXY_QUEUES')
+    queues = queues.split(',') if queues else []
+    queues = queues + list(command_palette.keys())
+
     _app_server_conf = CmdProxyServerConf(
-        celery=__init_celery_conf(redis_url, mongo_url),
+        logging=logging_conf,
+        celery=__init_celery_conf(redis_url, mongo_url, queues),
         cloud=CloudFSConf(mongo_url, mongodb_name),
         command_palette=command_palette,
         command_palette_path=command_palette_path
     )
+    logger.debug(f'Server config: {_app_server_conf}')
     return _app_server_conf
 
 
 def init_client_conf(conf_path: Union[str, Path, None] = None, *,
                      redis_url: Optional[str] = None,
                      mongo_url: Optional[str] = None,
-                     mongodb_name: Optional[str] = None):
+                     mongodb_name: Optional[str] = None,
+                     loglevel: Optional[str] = None):
     global _app_client_conf
 
     conf_path = conf_path or (Path.home() / '.cmdproxy' / 'client.yaml')
@@ -161,12 +194,25 @@ def init_client_conf(conf_path: Union[str, Path, None] = None, *,
         mongodb_name or \
         os.getenv('CMDPROXY_MONGODB_NAME') or \
         conf.mongodb_name
+    loglevel = \
+        loglevel or \
+        os.getenv('CMDPROXY_LOGLEVEL') or \
+        conf.logging_level
+
+    logging_conf = __init_logging_conf(loglevel)
+    logger = get_logger(__name__)
 
     _app_client_conf = CmdProxyClientConf(
-        celery=__init_celery_conf(redis_url, mongo_url),
+        logging=logging_conf,
+        celery=__init_celery_conf(redis_url, mongo_url, []),
         cloud=CloudFSConf(mongo_url, mongodb_name),
     )
+    logger.debug(f'Client config: {_app_server_conf}')
     return _app_client_conf
+
+
+def get_logging_conf() -> LoggingConfig:
+    return _logging_conf
 
 
 def get_celery_conf() -> CeleryConf:
@@ -200,8 +246,17 @@ def get_client_end_conf() -> CmdProxyClientConf:
     return _app_client_conf
 
 
-def __init_celery_conf(broker_url: str, backend_url: str):
-    global _celery_conf
+def __init_logging_conf(loglevel: str):
+    global _logging_conf
+    _logging_conf.loglevel = loglevel
+    return _logging_conf
 
-    _celery_conf = CeleryConf(broker_url=broker_url, backend_url=backend_url)
+
+def __init_celery_conf(broker_url: str, backend_url: str, queues: List[str]):
+    global _celery_conf
+    logger = get_logger(__name__)
+
+    _celery_conf = CeleryConf(broker_url=broker_url, backend_url=backend_url,
+                              queues=queues)
+    logger.debug(f'Celery config: {_celery_conf}')
     return _celery_conf
