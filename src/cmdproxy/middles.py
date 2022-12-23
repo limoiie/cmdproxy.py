@@ -9,18 +9,18 @@ from typing import Any, Callable, ContextManager, Optional, TypeVar
 
 import autodict
 from autoserde import AutoSerde
-from celery.utils.log import get_task_logger
 from gridfs import GridFS
 from registry import Registry
 
 from cmdproxy.errors import ServerEndException
 from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
     OutFileParam, Param, RemoteEnvParam, StrParam
+from cmdproxy.logging import get_logger
 from cmdproxy.protocol import RunRequest, RunResponse
 
 T = TypeVar('T')
 
-logger = get_task_logger('cmd-proxy')
+logger = get_logger(__name__)
 
 
 class Middle:
@@ -124,6 +124,10 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         @contextlib.contextmanager
         def guard(self, arg: InFileParam, key):
             if arg.is_local():
+                logger.debug(
+                    f'Uploading local input {arg.filename} to '
+                    f'{arg.as_cloud()}...')
+
                 # upload local input file to the cloud
                 file_id = arg.upload_(self.ctx.fs)
                 try:
@@ -146,6 +150,10 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
                 finally:
                     with contextlib.suppress(FileNotFoundError):
+                        logger.debug(
+                            f'Downloading cloud output {arg.as_cloud()} uploaded '
+                            f'by server to {arg.filename()}...')
+
                         # download local output file, and remove from cloud
                         file_id = arg.download_(self.ctx.fs)
                         self.ctx.fs.delete(file_id)
@@ -204,6 +212,10 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         @contextlib.contextmanager
         def guard(self, arg: InFileParam, key):
             with tempfile.TemporaryDirectory(prefix=arg.hostname) as workspace:
+                logger.debug(
+                    f'Downloading cloud input {arg.filename} uploaded by client '
+                    f'to {arg.as_cloud()}...')
+
                 # download from cloud to local temp path
                 filepath = os.path.join(workspace, arg.filename)
                 arg.download(self.ctx.fs, filepath)
@@ -223,6 +235,10 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
 
                 finally:
                     if os.path.exists(filepath):
+                        logger.debug(
+                            f'Uploading local output {arg.filename} to '
+                            f'{arg.as_cloud()}...')
+
                         arg.upload(self.ctx.fs, filepath)
                         os.remove(filepath)
 
@@ -279,7 +295,7 @@ class DeserializeAndUnpackMiddle(Middle):
 
     def wrap(self, func: Callable) -> Callable[[str], str]:
         def wrapped(serialized_request: str):
-            logger.info(f'Received request: {serialized_request}')
+            logger.debug(f'Received request: {serialized_request}')
 
             run_request = AutoSerde.deserialize(
                 body=serialized_request, cls=RunRequest, fmt=self.fmt,

@@ -15,6 +15,10 @@ from bson import ObjectId
 from flexio.flexio import FilePointer
 from gridfs import GridFS, GridOut
 
+from cmdproxy.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class Param(Dictable):
     def _to_dict(self, options: autodict.Options) -> dict:
