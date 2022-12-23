@@ -6,8 +6,6 @@ from typing import List, Optional, Union
 import yaml
 from autoserde import AutoSerde
 
-from cmdproxy.logging import get_logger
-
 
 @dataclasses.dataclass
 class LoggingConfig:
@@ -139,6 +137,8 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         conf.logging_level
 
     logging_conf = __init_logging_conf(loglevel)
+
+    from cmdproxy.logging import get_logger
     logger = get_logger(__name__)
 
     logger.debug('init server configuration...')
@@ -200,6 +200,8 @@ def init_client_conf(conf_path: Union[str, Path, None] = None, *,
         conf.logging_level
 
     logging_conf = __init_logging_conf(loglevel)
+
+    from cmdproxy.logging import get_logger
     logger = get_logger(__name__)
 
     _app_client_conf = CmdProxyClientConf(
@@ -254,6 +256,8 @@ def __init_logging_conf(loglevel: str):
 
 def __init_celery_conf(broker_url: str, backend_url: str, queues: List[str]):
     global _celery_conf
+
+    from cmdproxy.logging import get_logger
     logger = get_logger(__name__)
 
     _celery_conf = CeleryConf(broker_url=broker_url, backend_url=backend_url,
