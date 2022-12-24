@@ -46,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+    env:
+      CMDPROXY_VERSION: volatile
 
     steps:
     - uses: actions/checkout@v3
