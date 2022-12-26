@@ -164,7 +164,7 @@ class FileParamBase(Param):
         f = fs.find_one(dict(filename=self.cloud_url))
         if f is not None:
             fs.delete(f._id)
-        return f._id
+        return f._id if f else None
 
     def download(self, fs: GridFS, fp: Optional[FilePointer] = None) \
             -> Tuple[ObjectId, Optional[bytes]]:
@@ -206,9 +206,13 @@ class CloudFileParam(FileParamBase, ABC):
     def is_local_bind(self):
         return not self.is_cloud_only() and self.hostname == gethostname()
 
-    def alloc_(self, fs: GridFS):
-        # todo: make sure this url is unique on the cloud
-        pass
+    def alloc_(self, fs: GridFS, force=False) -> ObjectId:
+        if self.exists_on_cloud(fs) and not force:
+            raise FileExistsError(
+                f'File already exists on the cloud: {self.cloud_url}')
+
+        self.remove_from_cloud(fs)
+        return fs.put(b'', filename=self.cloud_url)
 
     def download_(self, fs: GridFS) -> ObjectId:
         if self.is_local_bind():
