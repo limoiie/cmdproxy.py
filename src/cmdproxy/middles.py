@@ -361,10 +361,11 @@ class PackAndSerializeMiddle(Middle):
                 body=serialized_response, cls=RunResponse, fmt=self.fmt,
                 options=self.options)
 
-            if run_response.exc is not None:
-                raise ServerEndException(run_response.exc)
+            return_code = run_response.return_code
+            if return_code != 0:
+                raise ServerEndException(run_response.exc, return_code)
 
-            return run_response.return_code
+            return return_code
 
         return wrapped
 
@@ -394,16 +395,16 @@ class DeserializeAndUnpackMiddle(Middle):
                     env=run_request.env,
                     cwd=run_request.cwd
                 )
-                full_exc = None
-                exc = None
+                exc, full_exc = None, None
 
             except Exception as e:
                 ret_code = -1
-                full_exc = traceback.format_exc()
-                exc = e
+                exc, full_exc = e, traceback.format_exc()
 
             if exc or full_exc:
-                logger.warning(f'Failed to run the command: {exc}\n{full_exc}')
+                logger.warning(
+                    f'Failed to run the command: code {ret_code} {exc}\n'
+                    f'{full_exc}')
 
             run_response = RunResponse(ret_code, full_exc)
             serialized = AutoSerde.serialize(run_response, fmt=self.fmt,
