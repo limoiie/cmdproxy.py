@@ -1,6 +1,6 @@
 import dataclasses
+import io
 import pathlib
-import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from socket import gethostname
@@ -52,6 +52,16 @@ class Param(Dictable):
     def remote_env(name: str) -> 'RemoteEnvParam':
         return RemoteEnvParam(name=name)
 
+    # noinspection PyShadowingNames
+    @staticmethod
+    def istream(io: Union[io.BufferedRandom, io.BytesIO], filename: str):
+        return InStreamParam(io, filename)
+
+    # noinspection PyShadowingNames
+    @staticmethod
+    def ostream(io: Union[io.BufferedRandom, io.BytesIO], filename: str):
+        return OutStreamParam(io, filename)
+
     @staticmethod
     def ipath(ref: Union[str, pathlib.Path]) \
             -> Union['InLocalFileParam', 'InCloudFileParam']:
@@ -102,9 +112,30 @@ class RemoteEnvParam(Param):
         return self.name
 
 
-LINK_REGEX = re.compile(r'<#:([io])>(.+?)</>')
 CLOUD_URL_PATTERN = '@{hostname}:{abspath}'
 LOCAL_HOSTNAME = gethostname()
+
+
+@dataclasses.dataclass
+class StreamParam:
+    io: Union[io.BufferedRandom, io.BytesIO]
+    filename: str
+
+    def read_bytes(self) -> bytes:
+        text = self.io.read()
+        return text
+
+
+@dataclasses.dataclass
+class InStreamParam(StreamParam):
+    def __post_init__(self):
+        assert self.io.readable()
+
+
+@dataclasses.dataclass
+class OutStreamParam(StreamParam):
+    def __post_init__(self):
+        assert self.io.writable()
 
 
 @dataclasses.dataclass
@@ -172,7 +203,7 @@ class FileParamBase(Param):
             with self.find_on_cloud(fs) as src:
                 tgt.write(src.read())
 
-            if tgt.in_mem:
+            if fp is None:
                 tgt.seek(0)
                 # noinspection PyProtectedMember
                 return src._id, tgt.read()

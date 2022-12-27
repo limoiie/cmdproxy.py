@@ -14,7 +14,7 @@ from registry import Registry
 
 from cmdproxy.errors import ServerEndException
 from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
-    OutFileParam, Param, RemoteEnvParam, StrParam
+    InStreamParam, OutFileParam, OutStreamParam, Param, RemoteEnvParam, StrParam
 from cmdproxy.logging import get_logger
 from cmdproxy.protocol import RunRequest, RunResponse
 
@@ -101,6 +101,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
     class AnyGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg, key):
+            assert isinstance(arg, str)
             yield Param.str(arg)
 
     @ArgGuard.register(param=EnvParam)
@@ -117,6 +118,32 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         @contextlib.contextmanager
         def guard(self, arg: RemoteEnvParam, key):
             yield Param.env(arg.name)
+
+    @ArgGuard.register(param=InStreamParam)
+    class InStreamGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: InStreamParam, key):
+            param = Param.ipath(arg.filename).as_cloud()
+            param.upload(self.ctx.fs, body=arg.read_bytes())
+            try:
+                yield param
+
+            finally:
+                param.remove_from_cloud(self.ctx.fs)
+
+    @ArgGuard.register(param=OutStreamParam)
+    class OutStreamGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: OutStreamParam, key):
+            param = Param.opath(arg.filename).as_cloud()
+            try:
+                yield param
+
+            finally:
+                origin_n = arg.io.tell()
+                param.download(self.ctx.fs, arg.io)
+                param.remove_from_cloud(self.ctx.fs)
+                arg.io.seek(origin_n)
 
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass

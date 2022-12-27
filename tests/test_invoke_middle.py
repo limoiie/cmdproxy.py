@@ -1,11 +1,12 @@
 import dataclasses
+import io
 import pathlib
 from collections import deque
 
 import parse
 
-from cmdproxy.invoke_params import FormatParam, InFileParam, OutFileParam, \
-    Param, StrParam
+from cmdproxy.invoke_params import FormatParam, InCloudFileParam, InFileParam, \
+    OutCloudFileParam, OutFileParam, Param, StrParam
 from cmdproxy.middles import ProxyClientEndInvokeMiddle, \
     ProxyServerEndInvokeMiddle
 from fake_run_context import create_fake_client_run_content, \
@@ -13,6 +14,54 @@ from fake_run_context import create_fake_client_run_content, \
 
 
 class TestProxyClientEnd:
+    def test_in_stream_guard(self, faker, grid_fs_maker):
+        fs = grid_fs_maker('test_in_stream_guard_db')
+        # fake the source bytes for in stream
+        content: bytes = faker.binary(length=200)
+
+        # make up a testing middle
+        im = ProxyClientEndInvokeMiddle(fs)
+        guard = ProxyClientEndInvokeMiddle.InStreamGuard(ctx=im)
+
+        # create the target in stream
+        stream = io.BytesIO(content)
+        param = Param.istream(io=stream, filename=faker.file_path())
+
+        with guard.guard(param, None) as f_param:
+            assert isinstance(f_param, InCloudFileParam), \
+                'StreamParam should be guarded as a CloudFileParam'
+            assert f_param.exists_on_cloud(fs), \
+                'StreamParam should be uploaded after being guarded'
+
+            uploaded_content = f_param.download(fs)[1]
+            assert content == uploaded_content, 'inconsistent uploaded content'
+
+        assert not f_param.exists_on_cloud(fs), \
+            'uploaded file should be removed from cloud after all'
+
+    def test_out_stream_guard(self, faker, grid_fs_maker):
+        fs = grid_fs_maker('test_out_stream_guard_db')
+        content: bytes = faker.binary(length=200)
+
+        im = ProxyClientEndInvokeMiddle(fs)
+        guard = ProxyClientEndInvokeMiddle.OutStreamGuard(ctx=im)
+
+        stream = io.BytesIO(content)
+        param = Param.ostream(io=stream, filename=faker.file_path())
+
+        with guard.guard(param, None) as f_param:
+            assert isinstance(f_param, OutCloudFileParam), \
+                'StreamParam should be guarded as a CloudFileParam'
+
+            # mimic server-end uploading
+            f_param.upload(fs, body=content)
+
+        uploaded_content = stream.read()
+        assert content == uploaded_content, 'inconsistent uploaded content'
+
+        assert not f_param.exists_on_cloud(fs), \
+            'uploaded file should be removed from cloud after all'
+
     def test_correctly_maintain_files(self, grid_fs_maker, faker,
                                       fake_local_file_maker,
                                       fake_local_path_maker):
