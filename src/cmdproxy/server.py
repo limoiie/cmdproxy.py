@@ -16,8 +16,11 @@ class Server:
         self._conf = conf
 
     def run(self, serialized_request: str):
+        conf = ProxyServerEndInvokeMiddle.Config(
+            cloud=self._conf.cloud, command_palette=self._conf.command_palette)
+
         @DeserializeAndUnpackMiddle(fmt='json', options=Options(with_cls=False))
-        @ProxyServerEndInvokeMiddle(fs=self._conf.cloud.grid_fs())
+        @ProxyServerEndInvokeMiddle(conf=conf)
         def proxy(command, args, stdout, stderr, env, cwd):
             logger.debug(f'Running command `{command}` with: \n'
                          f'  args: {args}\n'

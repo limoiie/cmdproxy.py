@@ -5,6 +5,7 @@ from collections import deque
 
 import parse
 
+from cmdproxy.celery_app.config import CloudFSConf
 from cmdproxy.invoke_params import FormatParam, InCloudFileParam, InFileParam, \
     OutCloudFileParam, OutFileParam, Param, StrParam
 from cmdproxy.middles import ProxyClientEndInvokeMiddle, \
@@ -14,14 +15,18 @@ from fake_run_context import create_fake_client_run_content, \
 
 
 class TestProxyClientEnd:
-    def test_in_stream_guard(self, faker, grid_fs_maker):
-        fs = grid_fs_maker('test_in_stream_guard_db')
+    def test_in_stream_guard(self, mongo_url, faker, grid_fs_maker):
+        dbname = 'test_in_stream_guard_db'
+        conf = ProxyClientEndInvokeMiddle.Config(
+            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+        fs = conf.cloud.grid_fs()
+
         # fake the source bytes for in stream
         content: bytes = faker.binary(length=200)
 
         # make up a testing middle
-        im = ProxyClientEndInvokeMiddle(fs)
-        guard = ProxyClientEndInvokeMiddle.InStreamGuard(ctx=im)
+        middle = ProxyClientEndInvokeMiddle(conf=conf)
+        guard = ProxyClientEndInvokeMiddle.InStreamGuard(ctx=middle)
 
         # create the target in stream
         stream = io.BytesIO(content)
@@ -39,14 +44,21 @@ class TestProxyClientEnd:
         assert not f_param.exists_on_cloud(fs), \
             'uploaded file should be removed from cloud after all'
 
-    def test_out_stream_guard(self, faker, grid_fs_maker):
-        fs = grid_fs_maker('test_out_stream_guard_db')
+    def test_out_stream_guard(self, mongo_url, faker, grid_fs_maker):
+        dbname = 'test_out_stream_guard_db'
+        conf = ProxyClientEndInvokeMiddle.Config(
+            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+        fs = conf.cloud.grid_fs()
+
+        # fake the source bytes for out stream
         content: bytes = faker.binary(length=200)
 
-        im = ProxyClientEndInvokeMiddle(fs)
-        guard = ProxyClientEndInvokeMiddle.OutStreamGuard(ctx=im)
+        # make up a testing middle
+        middle = ProxyClientEndInvokeMiddle(conf=conf)
+        guard = ProxyClientEndInvokeMiddle.OutStreamGuard(ctx=middle)
 
-        stream = io.BytesIO(content)
+        # create the target out stream
+        stream = io.BytesIO()
         param = Param.ostream(io=stream, filename=faker.file_path())
 
         with guard.guard(param, None) as f_param:
@@ -62,16 +74,20 @@ class TestProxyClientEnd:
         assert not f_param.exists_on_cloud(fs), \
             'uploaded file should be removed from cloud after all'
 
-    def test_correctly_maintain_files(self, grid_fs_maker, faker,
+    def test_correctly_maintain_files(self, mongo_url, faker, grid_fs_maker,
                                       fake_local_file_maker,
                                       fake_local_path_maker):
-        fs = grid_fs_maker('test_client_correctly_maintain_files_db')
+        dbname = 'test_client_correctly_maintain_files_db'
+        conf = ProxyClientEndInvokeMiddle.Config(
+            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+        fs = conf.cloud.grid_fs()
+
         ctx = create_fake_client_run_content(faker, fake_local_path_maker,
                                              fake_local_file_maker)
 
         @dataclasses.dataclass
         class MockTool:
-            command: str
+            command: Param
 
             def __call__(self, *args, stdout, stderr=None, env=None, cwd=None):
                 stack = deque(zip(
@@ -107,8 +123,8 @@ class TestProxyClientEnd:
 
                 return ctx.ret_code
 
-        im = ProxyClientEndInvokeMiddle(fs)
-        tool = im.wrap(func=MockTool(ctx.spec.command))
+        middle = ProxyClientEndInvokeMiddle(conf=conf)
+        tool = middle.wrap(func=MockTool(ctx.spec.command))
 
         ret = tool(*ctx.spec.args,
                    stdout=ctx.spec.stdout,
@@ -132,10 +148,14 @@ class TestProxyClientEnd:
 
 
 class TestProxyServerEnd:
-    def test_correctly_maintain_files(self, faker, grid_fs_maker,
+    def test_correctly_maintain_files(self, mongo_url, faker, grid_fs_maker,
                                       fake_cloud_file_maker,
                                       fake_local_path_maker):
-        fs = grid_fs_maker('test_server_correctly_maintain_files_db')
+        dbname = 'test_server_correctly_maintain_files_db'
+        conf = ProxyServerEndInvokeMiddle.Config(
+            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname),
+            command_palette={})
+        fs = conf.cloud.grid_fs()
         ctx = create_fake_server_run_content(faker, fake_local_path_maker,
                                              fake_cloud_file_maker, fs)
 
@@ -181,8 +201,8 @@ class TestProxyServerEnd:
 
                 return ctx.ret_code
 
-        im = ProxyServerEndInvokeMiddle(fs)
-        tool = im.wrap(func=MockTool(ctx.spec.command))
+        middle = ProxyServerEndInvokeMiddle(conf)
+        tool = middle.wrap(func=MockTool(ctx.spec.command))
 
         ret = tool(*ctx.spec.args,
                    stdout=ctx.spec.stdout,

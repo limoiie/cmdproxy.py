@@ -2,19 +2,23 @@ import abc
 import contextlib
 import dataclasses
 import os
+import pprint
+import shutil
 import tempfile
 import traceback
 from abc import abstractmethod
-from typing import Any, Callable, ContextManager, Optional, TypeVar
+from typing import Any, Callable, ContextManager, Dict, Optional, TypeVar
 
 import autodict
 from autoserde import AutoSerde
 from gridfs import GridFS
 from registry import Registry
 
+from cmdproxy.celery_app.config import CloudFSConf
 from cmdproxy.errors import ServerEndException
-from cmdproxy.invoke_params import EnvParam, FormatParam, InFileParam, \
-    InStreamParam, OutFileParam, OutStreamParam, Param, RemoteEnvParam, StrParam
+from cmdproxy.invoke_params import CmdNameParam, CmdPathParam, EnvParam, \
+    FormatParam, InFileParam, InStreamParam, OutFileParam, OutStreamParam, \
+    Param, RemoteEnvParam, StrParam
 from cmdproxy.logging import get_logger
 from cmdproxy.protocol import RunRequest, RunResponse
 
@@ -81,7 +85,11 @@ class InvokeMiddle(Middle):
 
 @dataclasses.dataclass
 class ProxyClientEndInvokeMiddle(InvokeMiddle):
-    fs: GridFS
+    @dataclasses.dataclass
+    class Config:
+        cloud: CloudFSConf
+
+    conf: Config
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
         arg_cls = type(arg)
@@ -90,10 +98,15 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
         return guard_cls(self)
 
+    @property
+    def fs(self) -> GridFS:
+        return self.conf.cloud.grid_fs()
+
     @dataclasses.dataclass
     class ArgGuard(InvokeMiddle.ArgGuard, Registry):
         ctx: 'ProxyClientEndInvokeMiddle'
 
+        @abstractmethod
         def guard(self, arg, key) -> ContextManager[Optional[Param]]:
             pass
 
@@ -119,17 +132,29 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
         def guard(self, arg: RemoteEnvParam, key):
             yield Param.env(arg.name)
 
+    @ArgGuard.register(param=CmdNameParam)
+    class CmdNameGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: CmdNameParam, key):
+            yield arg
+
+    @ArgGuard.register(param=CmdPathParam)
+    class CmdPathGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: CmdPathParam, key):
+            yield arg
+
     @ArgGuard.register(param=InStreamParam)
     class InStreamGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: InStreamParam, key):
             param = Param.ipath(arg.filename).as_cloud()
-            param.upload(self.ctx.fs, body=arg.read_bytes())
+            param.upload(fs=self.ctx.fs, body=arg.read_bytes())
             try:
                 yield param
 
             finally:
-                param.remove_from_cloud(self.ctx.fs)
+                param.remove_from_cloud(fs=self.ctx.fs)
 
     @ArgGuard.register(param=OutStreamParam)
     class OutStreamGuard(ArgGuard):
@@ -141,8 +166,8 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
             finally:
                 origin_n = arg.io.tell()
-                param.download(self.ctx.fs, arg.io)
-                param.remove_from_cloud(self.ctx.fs)
+                param.download(fs=self.ctx.fs, fp=arg.io)
+                param.remove_from_cloud(fs=self.ctx.fs)
                 arg.io.seek(origin_n)
 
     @ArgGuard.register(param=InFileParam)
@@ -156,7 +181,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                     f'{arg.as_cloud()}...')
 
                 # upload local input file to the cloud
-                file_id = arg.upload_(self.ctx.fs)
+                file_id = arg.upload_(fs=self.ctx.fs)
                 try:
                     yield arg.as_cloud()
 
@@ -201,7 +226,12 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
 @dataclasses.dataclass
 class ProxyServerEndInvokeMiddle(InvokeMiddle):
-    fs: GridFS
+    @dataclasses.dataclass
+    class Config:
+        cloud: CloudFSConf
+        command_palette: Dict[str, str]
+
+    conf: Config
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
         arg_cls = type(arg)
@@ -209,6 +239,10 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
             fn=lambda m: issubclass(arg_cls, m['param'])) or self.AnyGuard
 
         return guard_cls(self)
+
+    @property
+    def fs(self) -> GridFS:
+        return self.conf.cloud.grid_fs()
 
     @dataclasses.dataclass
     class ArgGuard(InvokeMiddle.ArgGuard, Registry):
@@ -228,10 +262,32 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            val = os.getenv(arg.name, None)
+            val = os.getenv(arg.name)
             if val is None:
-                raise KeyError(f'No environment variable named as {arg.name}.')
+                raise KeyError(f'Env var `{arg.name}` not found')
             yield val
+
+    @ArgGuard.register(param=CmdNameParam)
+    class CmdNameGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: CmdNameParam, key):
+            val = self.ctx.conf.command_palette.get(arg.name)
+            if val is None:
+                raise KeyError(
+                    f'Command `{arg.name}` not found in command-palette:\n'
+                    f'{pprint.pformat(self.ctx.conf.command_palette)}')
+            yield val
+
+    @ArgGuard.register(param=CmdPathParam)
+    class CmdPathGuard(ArgGuard):
+        @contextlib.contextmanager
+        def guard(self, arg: CmdPathParam, key):
+            if not os.path.exists(arg.path) and not shutil.which(arg.path):
+                raise FileNotFoundError(
+                    f'Command `{arg.path}` neither exists nor found in system '
+                    f'path.')
+
+            yield arg.path
 
     @ArgGuard.register(param=InFileParam)
     @dataclasses.dataclass

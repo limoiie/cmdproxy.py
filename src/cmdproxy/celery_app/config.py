@@ -149,9 +149,6 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
         with open(command_palette) as f:
             command_palette_path = Path(command_palette)
             command_palette = yaml.safe_load(f)
-
-        for key, val in command_palette.items():
-            os.environ[key] = val
     else:
         command_palette_path = None
         command_palette = dict()

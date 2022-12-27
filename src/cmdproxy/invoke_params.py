@@ -45,12 +45,28 @@ class Param(Dictable):
         return dataclass_from_dict(cls, obj, options)
 
     @staticmethod
+    def str(value: str) -> 'StrParam':
+        return StrParam(value=value)
+
+    @staticmethod
     def env(name: str) -> 'EnvParam':
         return EnvParam(name=name)
 
     @staticmethod
     def remote_env(name: str) -> 'RemoteEnvParam':
         return RemoteEnvParam(name=name)
+
+    @staticmethod
+    def format(tmpl: str, args: dict) -> 'FormatParam':
+        return FormatParam(tmpl=tmpl, args=args)
+
+    @staticmethod
+    def cmd_name(name: str) -> 'CmdNameParam':
+        return CmdNameParam(name=name)
+
+    @staticmethod
+    def cmd_path(path: str) -> 'CmdPathParam':
+        return CmdPathParam(path=path)
 
     # noinspection PyShadowingNames
     @staticmethod
@@ -84,16 +100,16 @@ class Param(Dictable):
         """
         return _file(ref, is_input=False)
 
-    @staticmethod
-    def format(tmpl, args):
-        return FormatParam(tmpl=tmpl, args=args)
-
-    @staticmethod
-    def str(value: str) -> 'StrParam':
-        return StrParam(value=value)
-
 
 DerivedParam = TypeVar('DerivedParam', bound=Param)
+
+
+@dataclasses.dataclass
+class StrParam(Param):
+    value: str
+
+    def __str__(self):
+        return self.value
 
 
 @dataclasses.dataclass
@@ -112,8 +128,24 @@ class RemoteEnvParam(Param):
         return self.name
 
 
-CLOUD_URL_PATTERN = '@{hostname}:{abspath}'
-LOCAL_HOSTNAME = gethostname()
+@dataclasses.dataclass
+class FormatParam(Param):
+    tmpl: str
+    args: Dict[str, Param]
+
+
+class CmdParamBase(Param):
+    pass
+
+
+@dataclasses.dataclass
+class CmdNameParam(CmdParamBase):
+    name: str
+
+
+@dataclasses.dataclass
+class CmdPathParam(CmdParamBase):
+    path: str
 
 
 @dataclasses.dataclass
@@ -136,6 +168,10 @@ class InStreamParam(StreamParam):
 class OutStreamParam(StreamParam):
     def __post_init__(self):
         assert self.io.writable()
+
+
+CLOUD_URL_PATTERN = '@{hostname}:{abspath}'
+LOCAL_HOSTNAME = gethostname()
 
 
 @dataclasses.dataclass
@@ -292,17 +328,6 @@ class OutCloudFileParam(CloudFileParam, OutFileParam):
 
 class OutLocalFileParam(LocalFileParam, OutFileParam):
     pass
-
-
-@dataclasses.dataclass
-class FormatParam(Param):
-    tmpl: str
-    args: Dict[str, Param]
-
-
-@dataclasses.dataclass
-class StrParam(Param):
-    value: str
 
 
 def upload_as_in(fs: GridFS, path: Union[str, Path]) -> InCloudFileParam:

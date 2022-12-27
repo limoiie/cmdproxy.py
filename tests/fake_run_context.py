@@ -68,7 +68,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
 
     # the args that client may receive
     spec = FakeClientRunSpec(
-        command='/bin/sh',
+        command=Param.cmd_path('/bin/sh'),
         args=[
             '-c',
             Param.format(
@@ -112,7 +112,7 @@ def create_fake_server_run_content(faker, fake_local_path_maker,
 
     # the args that a server may receive
     spec = FakeServerRunSpec(
-        command=Param.str('/bin/sh'),
+        command=Param.cmd_path('/bin/sh'),
         args=[
             Param.str('-c'),
             Param.format(
