@@ -212,12 +212,13 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
         @contextlib.contextmanager
         def guard(self, arg: InFileParam, key):
             with tempfile.TemporaryDirectory(prefix=arg.hostname) as workspace:
+                filepath = os.path.join(workspace, arg.filename)
+
                 logger.debug(
-                    f'Downloading cloud input {arg.filepath} uploaded by client '
-                    f'to {arg.as_cloud()}...')
+                    f'Downloading cloud input {arg.as_cloud()} uploaded by client '
+                    f'to {filepath}...')
 
                 # download from cloud to local temp path
-                filepath = os.path.join(workspace, arg.filename)
                 arg.download(self.ctx.fs, filepath)
 
                 yield filepath
@@ -236,7 +237,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
                 finally:
                     if os.path.exists(filepath):
                         logger.debug(
-                            f'Uploading local output {arg.filepath} to '
+                            f'Uploading local output {filepath} to '
                             f'{arg.as_cloud()}...')
 
                         arg.upload(self.ctx.fs, filepath)
