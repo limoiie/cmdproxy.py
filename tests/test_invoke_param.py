@@ -221,7 +221,7 @@ class TestFileParamInteraction:
         case = download_case
 
         _file_id, body = case.param.download(case.fs, case.fp)
-        with flexio.FlexBinaryIO(case.fp, init=body) as io:
+        with flexio.flex_open(case.fp, init=body) as io:
             io.seek(0)
             download_content = io.read()
 

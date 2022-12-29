@@ -166,7 +166,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
 
             finally:
                 origin_n = arg.io.tell()
-                param.download(fs=self.ctx.fs, fp=arg.io)
+                param.download(fs=self.ctx.fs, dst=arg.io)
                 param.remove_from_cloud(fs=self.ctx.fs)
                 arg.io.seek(origin_n)
 

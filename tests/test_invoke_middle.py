@@ -109,7 +109,8 @@ class TestProxyClientEnd:
 
                     # assert all the non-param args have been as StrParam
                     if not isinstance(origin_arg, Param):
-                        assert isinstance(arg, StrParam)
+                        assert (origin_arg is None and arg is None) or \
+                               isinstance(arg, StrParam)
 
                 # assert all inputs are uploaded
                 for _path, _param in ctx.inputs:

@@ -12,7 +12,7 @@ import parse
 from autodict import AutoDict, Dictable
 from autodict.predefined import dataclass_from_dict, dataclass_to_dict
 from bson import ObjectId
-from flexio.flexio import FilePointer
+from flexio.flexio import FPOrStrIO
 from gridfs import GridFS, GridOut
 
 from cmdproxy.logging import get_logger
@@ -233,13 +233,14 @@ class FileParamBase(Param):
             fs.delete(f._id)
         return f._id if f else None
 
-    def download(self, fs: GridFS, fp: Optional[FilePointer] = None) \
+    def download(self, fs: GridFS, dst: Optional[FPOrStrIO] = None,
+                 close_io: Optional[bool] = None) \
             -> Tuple[ObjectId, Optional[bytes]]:
-        with flexio.FlexBinaryIO(fp, 'wb+') as tgt:
+        with flexio.flex_open(dst, 'w+b', close_io=close_io) as tgt:
             with self.find_on_cloud(fs) as src:
                 tgt.write(src.read())
 
-            if fp is None:
+            if dst is None:
                 tgt.seek(0)
                 # noinspection PyProtectedMember
                 return src._id, tgt.read()
@@ -247,9 +248,10 @@ class FileParamBase(Param):
             # noinspection PyProtectedMember
             return src._id, None
 
-    def upload(self, fs: GridFS, fp: Optional[FilePointer] = None,
-               body: Optional[bytes] = None) -> ObjectId:
-        with flexio.FlexBinaryIO(fp, 'rb', init=body) as src:
+    def upload(self, fs: GridFS, src: Optional[FPOrStrIO] = None,
+               body: Optional[bytes] = None,
+               close_io: Optional[bool] = None) -> ObjectId:
+        with flexio.flex_open(src, 'rb', init=body, close_io=close_io) as src:
             return fs.put(src, filename=self.cloud_url)
 
     @abstractmethod

@@ -28,11 +28,11 @@ classifiers = [
     'Programming Language :: Python :: 3.11',
 ]
 dependencies = [
-    "autoserde @ git+https://github.com/limoiie/autoserde.git@v0.0.5",
+    "autoserde @ git+https://github.com/limoiie/autoserde.git@642bcbb7",
     "celery ~= 5.2.3",
     "coloredlogs ~= 15.0.1",
     "fire ~= 0.4.0",
-    "flexio @ git+https://github.com/limoiie/flexio.git@v0.0.2",
+    "flexio @ git+https://github.com/limoiie/flexio.git@728b650f",
     "parse ~= 1.19.0",
     "pymongo ~= 4.0.2",
     "pyyaml ~= 6.0",

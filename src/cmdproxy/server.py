@@ -1,7 +1,7 @@
 import subprocess
 
+import flexio
 from autodict import Options
-from flexio import FlexBinaryIO
 
 from cmdproxy.celery_app.config import CmdProxyServerConf
 from cmdproxy.logging import get_logger
@@ -29,10 +29,10 @@ class Server:
                          f'  env: {env}\n'
                          f'  cwd: {cwd}\n')
 
-            with FlexBinaryIO(stdout, mode='wb+') as out, \
-                    FlexBinaryIO(stderr, mode='wb+') as err:
+            with flexio.flex_open(stdout, mode='w+b') as stdout, \
+                    flexio.flex_open(stderr, mode='w+b') as stderr:
                 res = subprocess.run([command, *args], env=env, cwd=cwd,
-                                     stdout=out, stderr=err)
+                                     stdout=stdout, stderr=stderr)
             return res.returncode
 
         return proxy(serialized_request)
