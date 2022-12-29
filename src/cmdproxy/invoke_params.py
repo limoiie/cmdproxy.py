@@ -1,8 +1,8 @@
 import dataclasses
 import io
+import os
 import pathlib
 from abc import ABC, abstractmethod
-from pathlib import Path
 from socket import gethostname
 from typing import Dict, Optional, Tuple, TypeVar, Union
 
@@ -18,6 +18,8 @@ from gridfs import GridFS, GridOut
 from cmdproxy.logging import get_logger
 
 logger = get_logger(__name__)
+
+AnyPath = Union[str, os.PathLike]
 
 
 class Param(Dictable):
@@ -98,8 +100,7 @@ class Param(Dictable):
         return OutStreamParam(io, filename)
 
     @staticmethod
-    def ipath(ref: Union[str, pathlib.Path]) \
-            -> Union['InLocalFileParam', 'InCloudFileParam']:
+    def ipath(ref: AnyPath) -> Union['InLocalFileParam', 'InCloudFileParam']:
         """
         Create either an InLocalFileParam or an InCloudFileParam according to ref.
 
@@ -109,8 +110,7 @@ class Param(Dictable):
         return _file(ref, is_input=True)
 
     @staticmethod
-    def opath(ref: Union[str, pathlib.Path]) \
-            -> Union['OutLocalFileParam', 'OutCloudFileParam']:
+    def opath(ref: AnyPath) -> Union['OutLocalFileParam', 'OutCloudFileParam']:
         """
         Create either an OutLocalFileParam or an OutCloudFileParam according to ref.
 
@@ -127,6 +127,21 @@ class Param(Dictable):
         It will be unwrapped to original string value at server end.
         """
         return StrParam(value=value)
+
+    def is_cloud(self):
+        return isinstance(self, CloudFileParam)
+
+    def is_local(self):
+        return isinstance(self, LocalFileParam)
+
+    def is_stream(self):
+        return isinstance(self, StreamParam)
+
+    def is_input(self):
+        return isinstance(self, InFileParam)
+
+    def is_output(self):
+        return isinstance(self, OutFileParam)
 
 
 DerivedParam = TypeVar('DerivedParam', bound=Param)
@@ -204,30 +219,18 @@ LOCAL_HOSTNAME = gethostname()
 
 @dataclasses.dataclass
 class FileParamBase(Param):
-    filepath: Path
+    filepath: pathlib.Path
     hostname: str = LOCAL_HOSTNAME
 
     def __post_init__(self):
-        self.filepath = Path(self.filepath)
+        self.filepath = pathlib.Path(self.filepath)
 
         if self.is_local():
             assert self.hostname == LOCAL_HOSTNAME
 
-    def is_input(self):
-        return isinstance(self, InFileParam)
-
-    def is_output(self):
-        return not self.is_input()
-
     @abstractmethod
     def as_cloud(self):
         return NotImplemented
-
-    def is_cloud(self):
-        return isinstance(self, CloudFileParam)
-
-    def is_local(self):
-        return not self.is_cloud()
 
     @property
     def cloud_url(self):
@@ -360,24 +363,26 @@ class OutLocalFileParam(LocalFileParam, OutFileParam):
     pass
 
 
-def upload_as_in(fs: GridFS, path: Union[str, Path]) -> InCloudFileParam:
+def upload_as_in(fs: GridFS, path: AnyPath) -> InCloudFileParam:
     param = Param.ipath(path).as_cloud()
     param.upload_(fs)
     return param
 
 
-def alloc_as_out(fs: GridFS, path: Union[str, Path]) -> OutCloudFileParam:
+def alloc_as_out(fs: GridFS, path: AnyPath) -> OutCloudFileParam:
     param = Param.opath(path).as_cloud()
     param.alloc_(fs)
     return param
 
 
-def _file(url, is_input):
-    if isinstance(url, Path):
+def _file(url: AnyPath, is_input: bool):
+    if isinstance(url, os.PathLike):
+        url = pathlib.Path(url)
         return InLocalFileParam(url) if is_input else OutLocalFileParam(url)
 
     m = parse.parse(CLOUD_URL_PATTERN, url)
     if not m:
+        url = pathlib.Path(url)
         return InLocalFileParam(url) if is_input else OutLocalFileParam(url)
 
     hostname, filepath = m['hostname'], m['abspath']
