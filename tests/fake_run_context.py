@@ -79,7 +79,7 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
             ),
         ],
         stdout=make_output_local_path(b''),
-        stderr=make_output_local_path(b''),
+        stderr=None,
         env={
             'script': make_input_local_file()
         },
@@ -123,7 +123,7 @@ def create_fake_server_run_content(faker, fake_local_path_maker,
             ),
         ],
         stdout=make_output_cloud_file(b''),
-        stderr=make_output_cloud_file(b''),
+        stderr=None,
         env=None,
         cwd=None,
     )
