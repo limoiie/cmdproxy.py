@@ -46,39 +46,62 @@ class Param(Dictable):
 
     @staticmethod
     def env(name: str) -> 'EnvParam':
+        """Create an env Param that will be resolved at client end."""
         return EnvParam(name=name)
 
     @staticmethod
     def remote_env(name: str) -> 'RemoteEnvParam':
+        """Create an env Param that will be resolved at server end."""
         return RemoteEnvParam(name=name)
 
     @staticmethod
     def format(tmpl: str, args: dict) -> 'FormatParam':
+        """
+        Create a format Param that will be flattened at server end.
+
+        The args of this param will be guarded as normal params.
+        """
         return FormatParam(tmpl=tmpl, args=args)
 
     @staticmethod
     def cmd_name(name: str) -> 'CmdNameParam':
+        """
+        Create a command which is defined in server end's command palette file.
+
+        The command ought to be sent to the queue named with the same name.
+        """
         return CmdNameParam(name=name)
 
     @staticmethod
     def cmd_path(path: str) -> 'CmdPathParam':
+        """
+        Create a command with the path existing in server end.
+
+        You need to specify the target queue explicitly.
+        """
         return CmdPathParam(path=path)
 
     # noinspection PyShadowingNames
     @staticmethod
     def istream(io: Union[io.BufferedRandom, io.BytesIO], filename: str):
+        """
+        Create a Param that takes io as the input source.
+        """
         return InStreamParam(io, filename)
 
     # noinspection PyShadowingNames
     @staticmethod
     def ostream(io: Union[io.BufferedRandom, io.BytesIO], filename: str):
+        """
+        Create a Param that takes io as the output destination.
+        """
         return OutStreamParam(io, filename)
 
     @staticmethod
     def ipath(ref: Union[str, pathlib.Path]) \
             -> Union['InLocalFileParam', 'InCloudFileParam']:
         """
-        Create either an InLocalFileParam or an InCloudFileParam according to url.
+        Create either an InLocalFileParam or an InCloudFileParam according to ref.
 
         :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
         :return: A sub instance of InFileParam.
@@ -89,7 +112,7 @@ class Param(Dictable):
     def opath(ref: Union[str, pathlib.Path]) \
             -> Union['OutLocalFileParam', 'OutCloudFileParam']:
         """
-        Create either an OutLocalFileParam or an OutCloudFileParam according to url.
+        Create either an OutLocalFileParam or an OutCloudFileParam according to ref.
 
         :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
         :return: A sub instance of OutFileParam.
@@ -98,6 +121,11 @@ class Param(Dictable):
 
     @staticmethod
     def str(value: str) -> 'StrParam':
+        """
+        Create a Param that wraps the given string value.
+
+        It will be unwrapped to original string value at server end.
+        """
         return StrParam(value=value)
 
 
