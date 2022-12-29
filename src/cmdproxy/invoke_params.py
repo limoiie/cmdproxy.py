@@ -45,10 +45,6 @@ class Param(Dictable):
         return dataclass_from_dict(cls, obj, options)
 
     @staticmethod
-    def str(value: str) -> 'StrParam':
-        return StrParam(value=value)
-
-    @staticmethod
     def env(name: str) -> 'EnvParam':
         return EnvParam(name=name)
 
@@ -99,6 +95,10 @@ class Param(Dictable):
         :return: A sub instance of OutFileParam.
         """
         return _file(ref, is_input=False)
+
+    @staticmethod
+    def str(value: str) -> 'StrParam':
+        return StrParam(value=value)
 
 
 DerivedParam = TypeVar('DerivedParam', bound=Param)
