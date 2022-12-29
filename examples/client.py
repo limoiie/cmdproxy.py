@@ -18,7 +18,7 @@ def main(redis_url=None, mongo_url=None, mongodb_name=None):
 
         print('Running...')
         ret_code = client.run(
-            Param.remote_env('sh'), [
+            Param.cmd_name('sh'), [
                 '-c',
                 Param.format('cat {input} > {output}', {
                     'input': Param.ipath(in_file.name),
