@@ -8,4 +8,4 @@ class CmdProxyError(Exception):
 
 class ServerEndException(CmdProxyError):
     def __init__(self, exc):
-        super().__init__(exc)
+        super().__init__(f'ServerEndException: {exc}')

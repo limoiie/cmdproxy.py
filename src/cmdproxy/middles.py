@@ -362,7 +362,7 @@ class PackAndSerializeMiddle(Middle):
                 options=self.options)
 
             return_code = run_response.return_code
-            if return_code != 0:
+            if run_response.exc is not None:
                 raise ServerEndException(run_response.exc)
 
             return return_code
