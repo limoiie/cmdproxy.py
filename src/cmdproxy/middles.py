@@ -398,7 +398,7 @@ class DeserializeAndUnpackMiddle(Middle):
                 )
 
             except Exception as e:
-                exc = f'{repr(e):\n{traceback.format_exc()}}'
+                exc = f'{repr(e)}:\n{traceback.format_exc()}'
                 logger.warning(f'Exception raised when running command: {exc}')
 
             run_response = RunResponse(ret_code, exc)
