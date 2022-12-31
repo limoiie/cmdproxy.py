@@ -18,7 +18,7 @@ class TestProxyClientEnd:
     def test_in_stream_guard(self, mongo_url, faker, grid_fs_maker):
         dbname = 'test_in_stream_guard_db'
         conf = ProxyClientEndInvokeMiddle.Config(
-            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+            cloud=CloudFSConf(mongo_url=mongo_url, mongo_dbname=dbname))
         fs = conf.cloud.grid_fs()
 
         # fake the source bytes for in stream
@@ -47,7 +47,7 @@ class TestProxyClientEnd:
     def test_out_stream_guard(self, mongo_url, faker, grid_fs_maker):
         dbname = 'test_out_stream_guard_db'
         conf = ProxyClientEndInvokeMiddle.Config(
-            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+            cloud=CloudFSConf(mongo_url=mongo_url, mongo_dbname=dbname))
         fs = conf.cloud.grid_fs()
 
         # fake the source bytes for out stream
@@ -79,7 +79,7 @@ class TestProxyClientEnd:
                                       fake_local_path_maker):
         dbname = 'test_client_correctly_maintain_files_db'
         conf = ProxyClientEndInvokeMiddle.Config(
-            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname))
+            cloud=CloudFSConf(mongo_url=mongo_url, mongo_dbname=dbname))
         fs = conf.cloud.grid_fs()
 
         ctx = create_fake_client_run_content(faker, fake_local_path_maker,
@@ -154,7 +154,7 @@ class TestProxyServerEnd:
                                       fake_local_path_maker):
         dbname = 'test_server_correctly_maintain_files_db'
         conf = ProxyServerEndInvokeMiddle.Config(
-            cloud=CloudFSConf(mongodb_url=mongo_url, mongodb_name=dbname),
+            cloud=CloudFSConf(mongo_url=mongo_url, mongo_dbname=dbname),
             command_palette={})
         fs = conf.cloud.grid_fs()
         ctx = create_fake_server_run_content(faker, fake_local_path_maker,

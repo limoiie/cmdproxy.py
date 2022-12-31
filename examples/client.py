@@ -3,9 +3,9 @@ import tempfile
 from cmdproxy import Client, Param, init_client_conf
 
 
-def main(redis_url=None, mongo_url=None, mongodb_name=None):
+def main(redis_url=None, mongo_url=None, mongo_dbname=None):
     init_client_conf(redis_url=redis_url, mongo_url=mongo_url,
-                     mongodb_name=mongodb_name)
+                     mongo_dbname=mongo_dbname)
     client = Client.instance()
 
     with tempfile.NamedTemporaryFile() as in_file, \

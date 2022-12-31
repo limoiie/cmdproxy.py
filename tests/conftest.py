@@ -176,7 +176,7 @@ def case_name(case):
 def cmdproxy_server_config(redis_url, mongo_url, resource):
     conf = init_server_conf(redis_url=redis_url,
                             mongo_url=mongo_url,
-                            mongodb_name='test-cmdproxy',
+                            mongo_dbname='test-cmdproxy',
                             command_palette=resource(
                                 'command-palette.yaml'))
     yield conf
@@ -186,7 +186,7 @@ def cmdproxy_server_config(redis_url, mongo_url, resource):
 def cmdproxy_client_config(redis_url, mongo_url):
     conf = init_client_conf(redis_url=redis_url,
                             mongo_url=mongo_url,
-                            mongodb_name='test-cmdproxy')
+                            mongo_dbname='test-cmdproxy')
     yield conf
 
 

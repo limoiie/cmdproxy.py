@@ -4,7 +4,7 @@ from cmdproxy.celery_app.config import init_server_conf
 
 
 def launch(*, conf_path: str = None, redis_url: str = None,
-           mongo_url: str = None, mongodb_name: str = None,
+           mongo_url: str = None, mongo_dbname: str = None,
            command_palette: str = None, environments: str = None,
            queues: str = None, concurrency: int = None,
            hostname: str = None, detach: str = None, time_limit: float = None,
@@ -20,8 +20,8 @@ def launch(*, conf_path: str = None, redis_url: str = None,
     :param mongo_url: Url to the mongodb, which is for celery backend and cloud.
       When not specified, read it from env var named `CMDPROXY_MONGO_URL`, or
       read from configuration file, or default as "mongodb://localhost:27017".
-    :param mongodb_name: Database name of cloud fs. When not specified, read it
-      from env var named `CMDPROXY_MONGODB_NAME`, or read from configuration
+    :param mongo_dbname: Database name of cloud fs. When not specified, read it
+      from env var named `CMDPROXY_MONGO_DBNAME`, or read from configuration
       file, or default as "cmdproxy".
     :param command_palette: Path to command palette file. When not specified,
       read it from env var named `CMDPROXY_COMMAND_PALETTE`, or read from
@@ -41,7 +41,7 @@ def launch(*, conf_path: str = None, redis_url: str = None,
       'WARNING', 'ERROR', 'FATAL', 'CRITICAL'].
     """
     conf = init_server_conf(conf_path=conf_path, redis_url=redis_url,
-                            mongo_url=mongo_url, mongodb_name=mongodb_name,
+                            mongo_url=mongo_url, mongo_dbname=mongo_dbname,
                             command_palette=command_palette,
                             environments=environments, loglevel=loglevel,
                             queues=queues)

@@ -28,18 +28,18 @@ class CeleryConf:
 @dataclasses.dataclass
 class CloudFSConf:
     # url of the mongodb
-    mongodb_url: str
+    mongo_url: str
 
     # name of the database where stores the cloud files
-    mongodb_name: str
+    mongo_dbname: str
 
     def db(self):
-        return self.mongo_client().get_database(self.mongodb_name)
+        return self.mongo_client().get_database(self.mongo_dbname)
 
     def mongo_client(self):
         import pymongo
 
-        return pymongo.MongoClient(self.mongodb_url)
+        return pymongo.MongoClient(self.mongo_url)
 
     def grid_fs(self):
         import gridfs
@@ -90,7 +90,7 @@ _app_client_conf: Optional[CmdProxyClientConf] = None
 class CmdProxyServerConfFile:
     redis_url: Optional[str] = 'redis://localhost:6379'
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
-    mongodb_name: Optional[str] = 'cmdproxy-db'
+    mongo_dbname: Optional[str] = 'cmdproxy-db'
     command_palette: Union[str, None] = None
     environments: Union[str, None] = None
     logging_level: Optional[str] = None
@@ -100,14 +100,14 @@ class CmdProxyServerConfFile:
 class CmdProxyClientConfFile:
     redis_url: Optional[str] = 'redis://localhost:6379'
     mongo_url: Optional[str] = 'mongodb://localhost:27017'
-    mongodb_name: Optional[str] = 'cmdproxy-db'
+    mongo_dbname: Optional[str] = 'cmdproxy-db'
     logging_level: Optional[str] = None
 
 
 def init_server_conf(conf_path: Union[str, Path, None] = None, *,
                      redis_url: Optional[str] = None,
                      mongo_url: Optional[str] = None,
-                     mongodb_name: Optional[str] = None,
+                     mongo_dbname: Optional[str] = None,
                      command_palette: Union[str, Path, None] = None,
                      environments: Union[str, Path, None] = None,
                      loglevel: Optional[str] = None,
@@ -120,10 +120,10 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
 
     redis_url = redis_url or os.getenv('CMDPROXY_REDIS_URL') or conf.redis_url
     mongo_url = mongo_url or os.getenv('CMDPROXY_MONGO_URL') or conf.mongo_url
-    mongodb_name = \
-        mongodb_name or \
-        os.getenv('CMDPROXY_MONGODB_NAME') or \
-        conf.mongodb_name
+    mongo_dbname = \
+        mongo_dbname or \
+        os.getenv('CMDPROXY_MONGO_DBNAME') or \
+        conf.mongo_dbname
     command_palette = \
         command_palette or \
         os.getenv('CMDPROXY_COMMAND_PALETTE') or \
@@ -167,7 +167,7 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
     _app_server_conf = CmdProxyServerConf(
         logging=logging_conf,
         celery=__init_celery_conf(redis_url, mongo_url, queues),
-        cloud=CloudFSConf(mongo_url, mongodb_name),
+        cloud=CloudFSConf(mongo_url, mongo_dbname),
         command_palette=command_palette,
         command_palette_path=command_palette_path
     )
@@ -178,7 +178,7 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
 def init_client_conf(conf_path: Union[str, Path, None] = None, *,
                      redis_url: Optional[str] = None,
                      mongo_url: Optional[str] = None,
-                     mongodb_name: Optional[str] = None,
+                     mongo_dbname: Optional[str] = None,
                      loglevel: Optional[str] = None):
     global _app_client_conf
 
@@ -188,10 +188,10 @@ def init_client_conf(conf_path: Union[str, Path, None] = None, *,
 
     redis_url = redis_url or os.getenv('CMDPROXY_REDIS_URL') or conf.redis_url
     mongo_url = mongo_url or os.getenv('CMDPROXY_MONGO_URL') or conf.mongo_url
-    mongodb_name = \
-        mongodb_name or \
-        os.getenv('CMDPROXY_MONGODB_NAME') or \
-        conf.mongodb_name
+    mongo_dbname = \
+        mongo_dbname or \
+        os.getenv('CMDPROXY_MONGO_DBNAME') or \
+        conf.mongo_dbname
     loglevel = \
         loglevel or \
         os.getenv('CMDPROXY_LOGLEVEL') or \
@@ -205,7 +205,7 @@ def init_client_conf(conf_path: Union[str, Path, None] = None, *,
     _app_client_conf = CmdProxyClientConf(
         logging=logging_conf,
         celery=__init_celery_conf(redis_url, mongo_url, []),
-        cloud=CloudFSConf(mongo_url, mongodb_name),
+        cloud=CloudFSConf(mongo_url, mongo_dbname),
     )
     logger.debug(f'Client config: \n{pprint.pformat(_app_client_conf)}')
     return _app_client_conf
