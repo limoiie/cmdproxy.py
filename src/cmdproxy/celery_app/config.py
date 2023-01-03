@@ -145,7 +145,8 @@ def init_server_conf(conf_path: Union[str, Path, None] = None, *,
     logger.debug('init server configuration...')
 
     if command_palette:
-        assert os.path.exists(command_palette)
+        if not os.path.exists(command_palette):
+            raise FileNotFoundError(command_palette)
         with open(command_palette) as f:
             command_palette_path = Path(command_palette)
             command_palette = yaml.safe_load(f)

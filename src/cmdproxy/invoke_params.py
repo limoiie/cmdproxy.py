@@ -327,11 +327,15 @@ class CloudFileParam(FileParamBase, ABC):
 
 class LocalFileParam(FileParamBase, ABC):
     def download_(self, fs: GridFS) -> ObjectId:
-        assert self.hostname == gethostname()
+        assert self.hostname == LOCAL_HOSTNAME, \
+            f'Exceptional inplace download: Param is created on ' \
+            f'`{self.hostname}`, while going to download here `{LOCAL_HOSTNAME}`'
         return self.download(fs, self.filepath)[0]
 
     def upload_(self, fs: GridFS) -> ObjectId:
-        assert self.hostname == gethostname()
+        assert self.hostname == LOCAL_HOSTNAME, \
+            f'Exceptional inplace upload: Param is created on ' \
+            f'`{self.hostname}`, while going to upload here `{LOCAL_HOSTNAME}`'
         return self.upload(fs, self.filepath)
 
 
