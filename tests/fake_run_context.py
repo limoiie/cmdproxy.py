@@ -81,7 +81,11 @@ def create_fake_client_run_content(faker, fake_local_path_maker,
         stdout=make_output_local_path(b''),
         stderr=None,
         env={
-            'script': make_input_local_file()
+            'script': make_input_local_file(),
+            'string': Param.str('string value'),
+            'int': 10,
+            'float': 10.2,
+            'bool': False,
         },
         cwd=None,
     )
