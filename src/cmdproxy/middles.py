@@ -121,7 +121,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
             assert isinstance(arg, (str, int, float, bool)), \
                 f'Arg guarded by AnyGuard should be an instance of any type ' \
                 f'of (str, int, float, bool), but get {arg}.'
-            yield Param.str(arg)
+            yield Param.str(str(arg))
 
     @ArgGuard.register(param=EnvParam)
     class EnvGuard(ArgGuard):
