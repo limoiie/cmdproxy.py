@@ -2,6 +2,7 @@ import contextlib
 import filecmp
 import os
 import pathlib
+import random
 import socket
 from collections import namedtuple
 from os.path import basename
@@ -26,7 +27,9 @@ def make_case(request, faker) -> MCase:
     meta: MMeta = request.param
 
     hostname = socket.gethostname()
-    fpath = faker.file_path(absolute=meta.absolute)
+    fpath = faker.file_path(depth=random.randint(1, 4))
+    if not meta.absolute:
+        fpath = fpath[1:]
     url = '@%s:%s' % (hostname, fpath)
 
     if meta.is_cloud:
