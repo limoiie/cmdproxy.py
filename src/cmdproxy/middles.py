@@ -209,7 +209,7 @@ class ProxyClientEndInvokeMiddle(InvokeMiddle):
                 finally:
                     with contextlib.suppress(FileNotFoundError):
                         logger.debug(
-                            f'Downloading cloud output {arg.as_cloud()} uploaded '
+                            f'Downloading output {arg.as_cloud()} uploaded '
                             f'by server to {arg.filepath}...')
 
                         # download local output file, and remove from cloud
@@ -304,7 +304,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
                 filepath = os.path.join(workspace, arg.filename)
 
                 logger.debug(
-                    f'Downloading cloud input {arg.as_cloud()} uploaded by client '
+                    f'Downloading input {arg.as_cloud()} uploaded by client '
                     f'to {filepath}...')
 
                 # download from cloud to local temp path

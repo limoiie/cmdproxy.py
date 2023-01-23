@@ -2,6 +2,7 @@ import dataclasses
 import io
 import os
 import pathlib
+import zipfile
 from abc import ABC, abstractmethod
 from socket import gethostname
 from typing import Dict, Optional, Tuple, TypeVar, Union
@@ -16,6 +17,7 @@ from flexio.flexio import FPOrStrIO
 from gridfs import GridFS, GridOut
 
 from cmdproxy.logging import get_logger
+from cmdproxy.utils.fs import zip_dir
 
 logger = get_logger(__name__)
 
@@ -102,9 +104,9 @@ class Param(Dictable):
     @staticmethod
     def ipath(ref: AnyPath) -> Union['InLocalFileParam', 'InCloudFileParam']:
         """
-        Create either an InLocalFileParam or an InCloudFileParam according to ref.
+        Create either an InLocalFileParam or an InCloudFileParam by ref.
 
-        :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
+        :param ref: Either a filepath (for local), or a cloud_url (for cloud).
         :return: A sub instance of InFileParam.
         """
         return _file(ref, is_input=True)
@@ -112,9 +114,9 @@ class Param(Dictable):
     @staticmethod
     def opath(ref: AnyPath) -> Union['OutLocalFileParam', 'OutCloudFileParam']:
         """
-        Create either an OutLocalFileParam or an OutCloudFileParam according to ref.
+        Create either an OutLocalFileParam or an OutCloudFileParam by ref.
 
-        :param ref: Either being a filepath (for local), or a cloud_url (for cloud).
+        :param ref: Either a filepath (for local), or a cloud_url (for cloud).
         :return: A sub instance of OutFileParam.
         """
         return _file(ref, is_input=False)
@@ -254,7 +256,7 @@ class FileParamBase(Param):
     def find_on_cloud(self, fs: GridFS) -> GridOut:
         f = fs.find_one(dict(filename=self.cloud_url))
         if f is None:
-            raise FileNotFoundError(f'No cloud file with name {self.cloud_url}')
+            raise FileNotFoundError(f'No cloud file named {self.cloud_url}')
         return f
 
     # noinspection PyProtectedMember
@@ -267,14 +269,25 @@ class FileParamBase(Param):
     def download(self, fs: GridFS, dst: Optional[FPOrStrIO] = None,
                  close_io: Optional[bool] = None) \
             -> Tuple[ObjectId, Optional[bytes]]:
-        with flexio.flex_open(dst, 'w+b', close_io=close_io) as tgt:
-            with self.find_on_cloud(fs) as src:
+        with self.find_on_cloud(fs) as src:
+            content_type = src.metadata.get('content_type') \
+                if src.metadata else None
+            # if the source file is a directory, download and uncompress it
+            if content_type == 'application/directory+zip' and \
+                    isinstance(dst, (str, os.PathLike)):
+                with zipfile.ZipFile(src) as file:
+                    file.extractall(dst)
+                # noinspection PyProtectedMember
+                return src._id, None
+
+            # otherwise, just download it
+            with flexio.flex_open(dst, 'w+b', close_io=close_io) as tgt:
                 tgt.write(src.read())
 
-            if dst is None:
-                tgt.seek(0)
-                # noinspection PyProtectedMember
-                return src._id, tgt.read()
+                if dst is None:
+                    tgt.seek(0)
+                    # noinspection PyProtectedMember
+                    return src._id, tgt.read()
 
             # noinspection PyProtectedMember
             return src._id, None
@@ -282,6 +295,15 @@ class FileParamBase(Param):
     def upload(self, fs: GridFS, src: Optional[FPOrStrIO] = None,
                body: Optional[bytes] = None,
                close_io: Optional[bool] = None) -> ObjectId:
+        # if the source path is a directory, compress it and upload
+        if isinstance(src, (str, os.PathLike)) and os.path.isdir(src):
+            metadata = dict(content_type='application/directory+zip')
+            with flexio.flex_open() as azip:
+                zip_dir(azip, src)
+                azip.seek(0)
+                return fs.put(azip, filename=self.cloud_url, metadata=metadata)
+
+        # otherwise, just upload it
         with flexio.flex_open(src, 'rb', init=body, close_io=close_io) as src:
             return fs.put(src, filename=self.cloud_url)
 
@@ -317,25 +339,25 @@ class CloudFileParam(FileParamBase, ABC):
     def download_(self, fs: GridFS) -> ObjectId:
         if self.is_local_bind():
             return self.download(fs, self.filepath)[0]
-        raise RuntimeError('Only local-bind cloud file can download to itself.')
+        raise RuntimeError('Only local-bind file can download to itself.')
 
     def upload_(self, fs: GridFS) -> ObjectId:
         if self.is_local_bind():
             return self.upload(fs, self.filepath)
-        raise RuntimeError('Only local-bind cloud file can upload itself.')
+        raise RuntimeError('Only local-bind file can upload itself.')
 
 
 class LocalFileParam(FileParamBase, ABC):
     def download_(self, fs: GridFS) -> ObjectId:
         assert self.hostname == LOCAL_HOSTNAME, \
             f'Exceptional inplace download: Param is created on ' \
-            f'`{self.hostname}`, while going to download here `{LOCAL_HOSTNAME}`'
+            f'`{self.hostname}`, while downloading here `{LOCAL_HOSTNAME}`'
         return self.download(fs, self.filepath)[0]
 
     def upload_(self, fs: GridFS) -> ObjectId:
         assert self.hostname == LOCAL_HOSTNAME, \
             f'Exceptional inplace upload: Param is created on ' \
-            f'`{self.hostname}`, while going to upload here `{LOCAL_HOSTNAME}`'
+            f'`{self.hostname}`, while uploading here `{LOCAL_HOSTNAME}`'
         return self.upload(fs, self.filepath)
 
 
