@@ -1,4 +1,5 @@
 import contextlib
+import filecmp
 import os
 import pathlib
 import socket
@@ -226,6 +227,36 @@ class TestFileParamInteraction:
             download_content = io.read()
 
         assert case.content == download_content
+
+    def test_upload_directory(self, resources, grid_fs_maker,
+                              fake_local_file_maker):
+        to_upload_path = resources('fake_folder')
+        expected_zip_path = resources('fake_folder.zip')
+        fs = grid_fs_maker('test_upload_directory')
+
+        param = Param.ipath(to_upload_path)
+        param.upload(fs, to_upload_path)
+
+        with fs.find_one(dict(filename=param.cloud_url)) as f:
+            assert f.metadata['content_type'] == 'application/directory+zip'
+            # download the whole file manually, and compare
+            download_zip = fake_local_file_maker(content=f.read())
+            assert filecmp.cmp(download_zip, expected_zip_path, shallow=False)
+
+    def test_download_directory(self, resources, grid_fs_maker, tmp_path):
+        to_upload_path = resources('fake_folder')
+        downloaded_path = tmp_path
+        fs = grid_fs_maker('test_download_directory')
+
+        param = Param.ipath(downloaded_path)
+        param.upload(fs, to_upload_path)
+        param.download(fs, downloaded_path)
+
+        res = filecmp.dircmp(downloaded_path, to_upload_path)
+        assert not res.left_only, f'These are only left have {res.left_only}'
+        assert not res.right_only, f'These are only right have {res.right_only}'
+        assert not res.diff_files, f'These are diff {res.diff_files}'
+        assert not res.funny_files, f'These are not compared {res.funny_files}'
 
 
 @pytest.fixture(scope='function')

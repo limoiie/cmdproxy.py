@@ -81,8 +81,8 @@ def grid_fs_maker(mongo) -> Callable[[str], gridfs.GridFS]:
 
 
 @pytest.fixture(scope='session')
-def resource():
-    resource_root = pathlib.Path(__file__).parent
+def resources():
+    resource_root = pathlib.Path(__file__).parent / 'resources'
 
     def find(relpath):
         return (resource_root / relpath).resolve()
@@ -94,8 +94,10 @@ def resource():
 def fake_local_file_maker(tmp_path, faker):
     paths = []
 
-    def make(content=None, **kwargs):
-        _path = pathlib.Path(tempfile.mktemp(dir=tmp_path, **kwargs))
+    # noinspection PyShadowingBuiltins
+    def make(content=None, dir=None, **kwargs):
+        dir = dir or tmp_path
+        _path = pathlib.Path(tempfile.mktemp(dir=dir, **kwargs))
         _path.write_bytes(faker.text().encode() if content is None else content)
         paths.append(_path)
         return _path
@@ -173,11 +175,11 @@ def case_name(case):
 
 
 @pytest.fixture(scope='session')
-def cmdproxy_server_config(redis_url, mongo_url, resource):
+def cmdproxy_server_config(redis_url, mongo_url, resources):
     conf = init_server_conf(redis_url=redis_url,
                             mongo_url=mongo_url,
                             mongo_dbname='test-cmdproxy',
-                            command_palette=resource(
+                            command_palette=resources(
                                 'command-palette.yaml'))
     yield conf
 
