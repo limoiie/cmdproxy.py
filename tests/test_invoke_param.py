@@ -4,6 +4,7 @@ import os
 import pathlib
 import random
 import socket
+import zipfile
 from collections import namedtuple
 from os.path import basename
 from pathlib import Path
@@ -231,10 +232,10 @@ class TestFileParamInteraction:
 
         assert case.content == download_content
 
-    def test_upload_directory(self, resources, grid_fs_maker,
+    def test_upload_directory(self, resources, grid_fs_maker, tmp_path,
                               fake_local_file_maker):
+        to_download_path = tmp_path / 'unzip-downloaded'
         to_upload_path = resources('fake_folder')
-        expected_zip_path = resources('fake_folder.zip')
         fs = grid_fs_maker('test_upload_directory')
 
         param = Param.ipath(to_upload_path)
@@ -243,8 +244,16 @@ class TestFileParamInteraction:
         with fs.find_one(dict(filename=param.cloud_url)) as f:
             assert f.metadata['content_type'] == 'application/directory+zip'
             # download the whole file manually, and compare
-            download_zip = fake_local_file_maker(content=f.read())
-            assert filecmp.cmp(download_zip, expected_zip_path, shallow=False)
+            download_zip_path = fake_local_file_maker(content=f.read())
+
+        with zipfile.ZipFile(download_zip_path) as download_zip:
+            download_zip.extractall(to_download_path)
+
+        res = filecmp.dircmp(to_upload_path, to_download_path)
+        assert not res.left_only, f'These are only left has {res.left_only}'
+        assert not res.right_only, f'These are only right has {res.right_only}'
+        assert not res.diff_files, f'These are diff {res.diff_files}'
+        assert not res.funny_files, f'These are not compared {res.funny_files}'
 
     def test_download_directory(self, resources, grid_fs_maker, tmp_path):
         to_upload_path = resources('fake_folder')
@@ -256,8 +265,8 @@ class TestFileParamInteraction:
         param.download(fs, downloaded_path)
 
         res = filecmp.dircmp(downloaded_path, to_upload_path)
-        assert not res.left_only, f'These are only left have {res.left_only}'
-        assert not res.right_only, f'These are only right have {res.right_only}'
+        assert not res.left_only, f'These are only left has {res.left_only}'
+        assert not res.right_only, f'These are only right has {res.right_only}'
         assert not res.diff_files, f'These are diff {res.diff_files}'
         assert not res.funny_files, f'These are not compared {res.funny_files}'
 
