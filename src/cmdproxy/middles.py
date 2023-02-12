@@ -236,8 +236,27 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class Config:
         cloud: CloudFSConf
         command_palette: Dict[str, str]
+        passed_env: Dict[str, str] = dataclasses.field(default_factory=dict)
 
     conf: Config
+
+    def wrap(self, func: Callable) -> Callable:
+        """
+        Wrap a command for preprocessing its args before calling it.
+
+        :param func: the command going to be wrapped
+        :return: the wrapped command
+        """
+
+        def wrapped(*args, env, **kwargs):
+            with contextlib.ExitStack() as stack:
+                env = self.wrap_args_rec(stack, env) or {}
+                self.conf.passed_env = {**env}
+                args, kwargs = self.wrap_args_rec(stack, args), \
+                    self.wrap_args_rec(stack, kwargs)
+                return func(*args, env=env, **kwargs)
+
+        return wrapped
 
     def _guarder(self, arg: T, key=None) -> 'ArgGuard':
         arg_cls = type(arg)
@@ -268,7 +287,7 @@ class ProxyServerEndInvokeMiddle(InvokeMiddle):
     class EnvGuard(ArgGuard):
         @contextlib.contextmanager
         def guard(self, arg: EnvParam, key):
-            val = os.getenv(arg.name)
+            val = os.getenv(arg.name) or self.ctx.conf.passed_env.get(arg.name)
             if val is None:
                 raise KeyError(f'Env var `{arg.name}` not found')
             yield val

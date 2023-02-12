@@ -10,8 +10,6 @@ class RunRequest:
     args: Tuple[Param, ...]
     cwd: Optional[str] = None
     env: Optional[Dict[str, Param]] = None
-    to_downloads: Optional[List[Param]] = None
-    to_uploads: Optional[List[Param]] = None
     stdout: Optional[Param] = None
     stderr: Optional[Param] = None
 
